@@ -222,24 +222,164 @@ test('ownership: meta tag verification fails when no meta tag', async () => {
   }
 });
 
-// ── Production guard for VTA_SKIP_DNS_VERIFY ─────────────────────────────────
+// ── Fail-closed guard for VTA_SKIP_DNS_VERIFY ────────────────────────────────
 
 /**
- * Local implementation of isProduction to test the guard logic.
+ * Local implementations of the fail-closed guards to test the logic.
+ * These mirror the functions in vibetesting-agent/src/lib/dns-verify.ts.
  */
-function isProduction(): boolean {
-  return process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+function isDevelopment(): boolean {
+  const vtaEnv = process.env.VTA_ENV?.toLowerCase();
+  if (vtaEnv === 'development' || vtaEnv === 'test') return true;
+  const nodeEnv = process.env.NODE_ENV?.toLowerCase();
+  if (nodeEnv === 'development' || nodeEnv === 'test') return true;
+  return false;
 }
 
-test('ownership: isProduction returns expected values', () => {
-  const result = isProduction();
-  assert.equal(typeof result, 'boolean');
+function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.local');
+}
+
+function shouldSkipDnsVerify(hostname: string): boolean {
+  if (isLocalHost(hostname)) return true;
+  if (!isDevelopment()) return false;
+  return process.env.VTA_SKIP_DNS_VERIFY === '1' || process.env.SHIPCHECK_SKIP_DNS_VERIFY === '1';
+}
+
+test('ownership: isDevelopment fails closed when no env vars set', () => {
+  // Save original values
+  const origVtaEnv = process.env.VTA_ENV;
+  const origNodeEnv = process.env.NODE_ENV;
+  
+  // Clear environment variables to simulate production Worker
+  delete process.env.VTA_ENV;
+  delete process.env.NODE_ENV;
+  
+  try {
+    const result = isDevelopment();
+    assert.equal(result, false, 'should return false (production) when no env vars set');
+  } finally {
+    // Restore original values
+    if (origVtaEnv !== undefined) process.env.VTA_ENV = origVtaEnv;
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+  }
 });
 
-test('ownership: VTA_SKIP_DNS_VERIFY is blocked in production mode', async () => {
-  // This tests that the isProduction() guard returns false in test environment
-  // so VTA_SKIP_DNS_VERIFY can work. In production, isProduction() returns true
-  // and the skip is blocked.
-  const prod = isProduction();
-  assert.equal(prod, false, 'test environment should not be detected as production');
+test('ownership: isDevelopment returns true with VTA_ENV=development', () => {
+  const origVtaEnv = process.env.VTA_ENV;
+  const origNodeEnv = process.env.NODE_ENV;
+  
+  delete process.env.NODE_ENV;
+  process.env.VTA_ENV = 'development';
+  
+  try {
+    const result = isDevelopment();
+    assert.equal(result, true, 'should return true with VTA_ENV=development');
+  } finally {
+    if (origVtaEnv !== undefined) process.env.VTA_ENV = origVtaEnv;
+    else delete process.env.VTA_ENV;
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+  }
+});
+
+test('ownership: isDevelopment returns true with VTA_ENV=test', () => {
+  const origVtaEnv = process.env.VTA_ENV;
+  const origNodeEnv = process.env.NODE_ENV;
+  
+  delete process.env.NODE_ENV;
+  process.env.VTA_ENV = 'test';
+  
+  try {
+    const result = isDevelopment();
+    assert.equal(result, true, 'should return true with VTA_ENV=test');
+  } finally {
+    if (origVtaEnv !== undefined) process.env.VTA_ENV = origVtaEnv;
+    else delete process.env.VTA_ENV;
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+  }
+});
+
+test('ownership: shouldSkipDnsVerify always allows localhost', () => {
+  const origVtaEnv = process.env.VTA_ENV;
+  const origNodeEnv = process.env.NODE_ENV;
+  const origSkip = process.env.VTA_SKIP_DNS_VERIFY;
+  
+  // Simulate production: no env vars set
+  delete process.env.VTA_ENV;
+  delete process.env.NODE_ENV;
+  delete process.env.VTA_SKIP_DNS_VERIFY;
+  
+  try {
+    assert.equal(shouldSkipDnsVerify('localhost'), true, 'localhost should always skip');
+    assert.equal(shouldSkipDnsVerify('127.0.0.1'), true, '127.0.0.1 should always skip');
+    assert.equal(shouldSkipDnsVerify('myapp.local'), true, '*.local should always skip');
+  } finally {
+    if (origVtaEnv !== undefined) process.env.VTA_ENV = origVtaEnv;
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+    if (origSkip !== undefined) process.env.VTA_SKIP_DNS_VERIFY = origSkip;
+  }
+});
+
+test('ownership: shouldSkipDnsVerify blocks skip in production even with VTA_SKIP_DNS_VERIFY=1', () => {
+  const origVtaEnv = process.env.VTA_ENV;
+  const origNodeEnv = process.env.NODE_ENV;
+  const origSkip = process.env.VTA_SKIP_DNS_VERIFY;
+  
+  // Simulate production Worker: no env vars, but VTA_SKIP_DNS_VERIFY=1 somehow set
+  delete process.env.VTA_ENV;
+  delete process.env.NODE_ENV;
+  process.env.VTA_SKIP_DNS_VERIFY = '1';
+  
+  try {
+    const result = shouldSkipDnsVerify('example.com');
+    assert.equal(result, false, 'should NOT skip for non-local host in production even with VTA_SKIP_DNS_VERIFY=1');
+  } finally {
+    if (origVtaEnv !== undefined) process.env.VTA_ENV = origVtaEnv;
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+    if (origSkip !== undefined) process.env.VTA_SKIP_DNS_VERIFY = origSkip;
+    else delete process.env.VTA_SKIP_DNS_VERIFY;
+  }
+});
+
+test('ownership: shouldSkipDnsVerify allows skip in dev mode with VTA_SKIP_DNS_VERIFY=1', () => {
+  const origVtaEnv = process.env.VTA_ENV;
+  const origNodeEnv = process.env.NODE_ENV;
+  const origSkip = process.env.VTA_SKIP_DNS_VERIFY;
+  
+  // Explicit dev mode
+  process.env.VTA_ENV = 'development';
+  delete process.env.NODE_ENV;
+  process.env.VTA_SKIP_DNS_VERIFY = '1';
+  
+  try {
+    const result = shouldSkipDnsVerify('example.com');
+    assert.equal(result, true, 'should skip in dev mode with VTA_SKIP_DNS_VERIFY=1');
+  } finally {
+    if (origVtaEnv !== undefined) process.env.VTA_ENV = origVtaEnv;
+    else delete process.env.VTA_ENV;
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+    if (origSkip !== undefined) process.env.VTA_SKIP_DNS_VERIFY = origSkip;
+    else delete process.env.VTA_SKIP_DNS_VERIFY;
+  }
+});
+
+test('ownership: shouldSkipDnsVerify requires VTA_SKIP_DNS_VERIFY=1 even in dev mode', () => {
+  const origVtaEnv = process.env.VTA_ENV;
+  const origNodeEnv = process.env.NODE_ENV;
+  const origSkip = process.env.VTA_SKIP_DNS_VERIFY;
+  
+  // Dev mode but no skip flag
+  process.env.VTA_ENV = 'development';
+  delete process.env.NODE_ENV;
+  delete process.env.VTA_SKIP_DNS_VERIFY;
+  
+  try {
+    const result = shouldSkipDnsVerify('example.com');
+    assert.equal(result, false, 'should NOT skip in dev mode without VTA_SKIP_DNS_VERIFY=1');
+  } finally {
+    if (origVtaEnv !== undefined) process.env.VTA_ENV = origVtaEnv;
+    else delete process.env.VTA_ENV;
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+    if (origSkip !== undefined) process.env.VTA_SKIP_DNS_VERIFY = origSkip;
+  }
 });

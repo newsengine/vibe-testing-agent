@@ -3,8 +3,34 @@ import { resolveTxt } from 'node:dns/promises';
 const MAX_FETCH_SIZE = 64 * 1024;
 const FETCH_TIMEOUT_MS = 10_000;
 
-function isProduction(): boolean {
-  return process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+/**
+ * Check if we're in an explicit development/test environment.
+ * Fails closed: returns false (production) unless explicitly set to dev/test.
+ * This is safe for Cloudflare Workers where NODE_ENV may not be set.
+ */
+export function isDevelopment(): boolean {
+  const vtaEnv = process.env.VTA_ENV?.toLowerCase();
+  if (vtaEnv === 'development' || vtaEnv === 'test') return true;
+  const nodeEnv = process.env.NODE_ENV?.toLowerCase();
+  if (nodeEnv === 'development' || nodeEnv === 'test') return true;
+  return false;
+}
+
+/**
+ * Check if a hostname is a local development host.
+ */
+function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.local');
+}
+
+/**
+ * Check if VTA_SKIP_DNS_VERIFY should be honored.
+ * Fails closed: only allow skip in explicit dev/test mode OR for localhost.
+ */
+export function shouldSkipDnsVerify(hostname: string): boolean {
+  if (isLocalHost(hostname)) return true;
+  if (!isDevelopment()) return false;
+  return process.env.VTA_SKIP_DNS_VERIFY === '1' || process.env.SHIPCHECK_SKIP_DNS_VERIFY === '1';
 }
 
 /** Expect TXT: vibetesting-verify=<token> (or legacy shipcheck-verify=) on host or _vta.<host>. */
@@ -27,16 +53,8 @@ export async function verifyDomainOwnership(hostname: string, token: string): Pr
     }
   }
 
-  // Dev escape hatch for localhost / demo - NEVER in production
-  if (!isProduction()) {
-    if (
-      process.env.VTA_SKIP_DNS_VERIFY === '1' ||
-      process.env.SHIPCHECK_SKIP_DNS_VERIFY === '1' || // legacy alias
-      hostname === 'localhost' ||
-      hostname.endsWith('.local')
-    ) {
-      return { ok: true, detail: 'Dev skip DNS verify' };
-    }
+  if (shouldSkipDnsVerify(hostname)) {
+    return { ok: true, detail: 'Dev skip DNS verify' };
   }
 
   return {
