@@ -3,6 +3,49 @@ import { PLANS, TEST_CATALOG, SUITE_STATS, EXTRA_MODES, LITE_CATEGORIES } from '
 import { LiteScanBox } from '@/components/forms';
 import { config } from '@/lib/config';
 import { COMPANY, providedByLine } from '@/lib/company';
+import { getTestsByCategory, getTestCount, CATEGORY_LABELS } from '@/lib/test-list';
+
+function FullTestList() {
+  const testsByCategory = getTestsByCategory();
+  const totalCount = getTestCount();
+  const categories = Object.keys(testsByCategory).sort();
+
+  return (
+    <div className="mt-12 rounded-xl border border-[var(--edge)] bg-black/20 p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="mono text-lg font-bold">Complete test catalog</h3>
+          <p className="text-sm text-[var(--mut)]">{totalCount} tests across {categories.length} categories</p>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {categories.map((category) => (
+          <div key={category} className="rounded-lg border border-[var(--edge)] bg-black/30 p-4">
+            <div className="mono mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--lime)]">
+              {CATEGORY_LABELS[category] || category}
+            </div>
+            <ul className="space-y-1 text-xs text-[var(--mut)]">
+              {testsByCategory[category].slice(0, 15).map((name, i) => (
+                <li key={i} className="truncate">{name}</li>
+              ))}
+              {testsByCategory[category].length > 15 && (
+                <li className="text-[var(--md)]">+{testsByCategory[category].length - 15} more</li>
+              )}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs text-[var(--mut)]">
+        This list is auto-generated from <code className="text-[var(--ink)]">src/catalog.ts</code> —
+        the single source of truth for all checks. See{' '}
+        <Link href="/docs/coverage" className="text-[var(--lime)] hover:underline">
+          full coverage docs
+        </Link>{' '}
+        for details on each check.
+      </p>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const paid = [PLANS.weekly, PLANS.daily, PLANS.commit];
@@ -215,6 +258,9 @@ export default function HomePage() {
           checkboxes — that would be inflated. The surface is large because of rules + dynamic coverage, not
           fake line items.
         </p>
+
+        {/* Full test list - derived from catalog */}
+        <FullTestList />
       </section>
 
       <section id="pricing" className="mx-auto max-w-6xl px-5 pb-24">

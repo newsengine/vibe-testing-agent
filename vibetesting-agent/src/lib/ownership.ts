@@ -2,13 +2,15 @@
  * Project ownership proof:
  * 1) Domain email — signed-in address is on the app's domain + inbox click verified
  * 2) DNS TXT — vibetesting-verify=<token> on host or _vta.<host>
+ * 3) Well-known file — https://<host>/.well-known/vibetesting-verify.txt containing the token
+ * 4) Meta tag — <meta name="vibetesting-verify" content="<token>"> on the homepage
  */
 import { eq } from 'drizzle-orm';
 import { getDb, schema } from './db';
 import { token } from './ids';
 import { config } from './config';
 import { sendEmail } from './email';
-import { verifyDomainOwnership, hostnameFromUrl } from './dns-verify';
+import { verifyDomainOwnership, verifyFileOwnership, verifyMetaOwnership, hostnameFromUrl } from './dns-verify';
 import { audit } from './audit';
 import type { User, Project } from './db/schema';
 
@@ -71,7 +73,7 @@ export function isEmailInboxVerified(user: User): boolean {
   return Boolean(user.emailVerifiedAt);
 }
 
-export type OwnershipMethod = 'dns' | 'email';
+export type OwnershipMethod = 'dns' | 'email' | 'file' | 'meta';
 
 export function describeOwnershipOptions(user: User, project: Project) {
   const domain = emailLocalDomain(user.email);
@@ -94,6 +96,15 @@ export function describeOwnershipOptions(user: User, project: Project) {
       host: project.hostname,
       altHost: `_vta.${project.hostname}`,
       record: `vibetesting-verify=${project.verifyToken}`,
+    },
+    file: {
+      url: `https://${project.hostname}/.well-known/vibetesting-verify.txt`,
+      content: project.verifyToken,
+      instructions: `Create a file at /.well-known/vibetesting-verify.txt containing exactly: ${project.verifyToken}`,
+    },
+    meta: {
+      tag: `<meta name="vibetesting-verify" content="${project.verifyToken}">`,
+      instructions: `Add this meta tag to your homepage <head>: <meta name="vibetesting-verify" content="${project.verifyToken}">`,
     },
   };
 }
@@ -236,27 +247,81 @@ export async function verifyProjectOwnership(
   }
 
   // DNS
-  const result = await verifyDomainOwnership(project.hostname, project.verifyToken);
-  if (!result.ok) throw new Error(result.detail);
-  const db = await getDb();
-  await db
-    .update(schema.projects)
-    .set({
-      verified: true,
-      verifiedAt: new Date(),
-      verifyMethod: 'dns',
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.projects.id, project.id));
-  await audit('project.verified', {
-    userId: user.id,
-    target: project.id,
-    detail: { method: 'dns', ...result },
-  });
-  const updated = (
-    await db.select().from(schema.projects).where(eq(schema.projects.id, project.id)).limit(1)
-  )[0]!;
-  return { project: updated, method: 'dns', detail: result.detail };
+  if (method === 'dns') {
+    const result = await verifyDomainOwnership(project.hostname, project.verifyToken);
+    if (!result.ok) throw new Error(result.detail);
+    const db = await getDb();
+    await db
+      .update(schema.projects)
+      .set({
+        verified: true,
+        verifiedAt: new Date(),
+        verifyMethod: 'dns',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, project.id));
+    await audit('project.verified', {
+      userId: user.id,
+      target: project.id,
+      detail: { method: 'dns', ...result },
+    });
+    const updated = (
+      await db.select().from(schema.projects).where(eq(schema.projects.id, project.id)).limit(1)
+    )[0]!;
+    return { project: updated, method: 'dns', detail: result.detail };
+  }
+
+  // Well-known file
+  if (method === 'file') {
+    const result = await verifyFileOwnership(project.hostname, project.verifyToken);
+    if (!result.ok) throw new Error(result.detail);
+    const db = await getDb();
+    await db
+      .update(schema.projects)
+      .set({
+        verified: true,
+        verifiedAt: new Date(),
+        verifyMethod: 'file',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, project.id));
+    await audit('project.verified', {
+      userId: user.id,
+      target: project.id,
+      detail: { method: 'file', ...result },
+    });
+    const updated = (
+      await db.select().from(schema.projects).where(eq(schema.projects.id, project.id)).limit(1)
+    )[0]!;
+    return { project: updated, method: 'file', detail: result.detail };
+  }
+
+  // Meta tag
+  if (method === 'meta') {
+    const result = await verifyMetaOwnership(project.hostname, project.verifyToken);
+    if (!result.ok) throw new Error(result.detail);
+    const db = await getDb();
+    await db
+      .update(schema.projects)
+      .set({
+        verified: true,
+        verifiedAt: new Date(),
+        verifyMethod: 'meta',
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, project.id));
+    await audit('project.verified', {
+      userId: user.id,
+      target: project.id,
+      detail: { method: 'meta', ...result },
+    });
+    const updated = (
+      await db.select().from(schema.projects).where(eq(schema.projects.id, project.id)).limit(1)
+    )[0]!;
+    return { project: updated, method: 'meta', detail: result.detail };
+  }
+
+  throw new Error(`Unknown verification method: ${method}`);
 }
 
 export { hostnameFromUrl };
