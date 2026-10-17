@@ -101,3 +101,11 @@ export {
   htmlReflectsXss, profilesDumpDetected,
   type DbCriticalSpec, type DbCriticalRole,
 } from './db-critical.js';
+export {
+  gapChecks, GAP_CHECK_CONFIG, isPassiveCheck, exposurePreviewDeploymentsCheck,
+  dnsDkimCheck, csrfTokenCheck, disclosurePiiInResponseCheck,
+} from './gap-checks.js';
+export {
+  REPO_SECRET_RULES, scanContent, redactSecret, checkLiveness, isEnvFile, shouldSkipFile,
+  type RepoSecretRule, type RepoSecretHit, type RepoScanResult, type LivenessResult,
+} from './repo-secrets.js';

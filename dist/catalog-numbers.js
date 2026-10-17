@@ -184,4 +184,6 @@ export const CATALOG_NUMBERS = {
     "dns.dkim": 179,
     "csrf.token": 180,
     "disclosure.pii-in-response": 181,
+    "exposure.preview-deployments": 182,
+    "repo.secrets": 183,
 };

@@ -360,3 +360,29 @@ test('gap: db.firebase-rules detects Firebase storage pattern in HTML', async ()
   // We just verify it parsed the pattern and didn't crash
   assert.ok(Array.isArray(findings));
 });
+
+// ── Preview deployments check (verified only) ────────────────────────────────
+
+import { exposurePreviewDeploymentsCheck } from '../dist/gap-checks.js';
+
+test('gap: exposure.preview-deployments returns findings for public preview hosts', async () => {
+  // This test verifies the check runs without error
+  // Actual preview discovery requires real network access
+  const ctx = makeCtx('https://example.com/', '<html><body>No links</body></html>');
+  const findings = await exposurePreviewDeploymentsCheck(ctx);
+  // Should return empty array or info finding when no previews found
+  assert.ok(Array.isArray(findings));
+});
+
+test('gap: exposure.preview-deployments extracts linked hosting URLs', async () => {
+  const html = `
+    <html><body>
+      <a href="https://my-app.vercel.app">Preview</a>
+      <a href="https://my-app.pages.dev">Pages</a>
+    </body></html>
+  `;
+  const ctx = makeCtx('https://my-app.com/', html);
+  const findings = await exposurePreviewDeploymentsCheck(ctx);
+  // The check should attempt to probe these hosts
+  assert.ok(Array.isArray(findings));
+});

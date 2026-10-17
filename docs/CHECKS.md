@@ -3,7 +3,7 @@
 > Generated from `src/catalog.ts` by `npm run catalog`. Do not edit by hand — edit the catalog and regenerate.
 > `tests/catalog.test.ts` fails the build if the engine emits a finding id that is not listed here, or if this file is stale.
 
-**166** scanner checks + **10** Dynamic Business CMS critical-path checks + **5** white-box testkit helpers.
+**168** scanner checks + **10** Dynamic Business CMS critical-path checks + **5** white-box testkit helpers.
 
 Legend — how each check reaches its verdict:
 
@@ -74,6 +74,7 @@ Legend — how each check reaches its verdict:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | VTA-0033 | `secret.*` | Hardcoded secret in client code | high | probe | on | A02; CWE-798 CWE-312 | 0.1.0 | API/private keys leaked in the HTML or same-origin JS bundles (secret.none when clean). |
 | VTA-0034 | `sourcemap.exposed` | Public source maps | medium | probe | on | A05; CWE-540 | 0.5.0 | Reachable .map files expose the original unminified source. |
+| VTA-0183 | `repo.secrets` | Repository secret scan | high | white-box | — | — | 0.9.0 | Scans working tree and git history for leaked secrets (AWS, GCP, Stripe, OpenAI, private keys, DB connection strings, .env files). Requires authorized repo connection. |
 
 ## Exposed files & debug
 
@@ -88,6 +89,7 @@ Legend — how each check reaches its verdict:
 | VTA-0041 | `exposure.none` | No exposed surfaces | info | probe | on | — | 0.2.0 | Clean-signal pass emitted when nothing above fired. |
 | VTA-0042 | `api.unauth-data*` | API route returns data without auth | high | probe | on | — | 0.7.0 | A discovered/wordlist /api/* route answers 200 + JSON data with no auth challenge (#24). |
 | VTA-0043 | `api.unauth-write*` | API route accepts unauth write | high | active | opt-in | — | 0.7.0 | A write-suggestive route accepts a benign unauthenticated POST (2xx) (--api-write; #24). |
+| VTA-0182 | `exposure.preview-deployments` | Preview/staging deployments exposed | medium | probe | opt-in | — | 0.9.0 | Finds reachable preview/staging deployments (subdomains, *.vercel.app, *.pages.dev, etc.) that are public without auth or leak debug info. |
 
 ## DNS & email
 

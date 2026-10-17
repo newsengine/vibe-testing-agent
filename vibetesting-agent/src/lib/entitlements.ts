@@ -175,6 +175,8 @@ export const VERIFIED_GAP_CHECKS = new Set([
   'upload.content-type',
   'db.firebase-rules',
   'storage.public-bucket',
+  'exposure.preview-deployments',
+  'repo.secrets',
 ]);
 
 export function canRunGapCheck(checkId: string, verified: boolean): boolean {

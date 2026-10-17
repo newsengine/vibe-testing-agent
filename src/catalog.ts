@@ -204,6 +204,12 @@ export const CATALOG: CheckSpec[] = [
   { id: 'db.firebase-rules', category: 'security', title: 'Firebase/Supabase storage rules', severity: 'high', cls: 'probe', optIn: true, since: '0.9.0', description: 'Read-only check for publicly listable Firebase Storage buckets or open Supabase RLS.' },
   { id: 'storage.public-bucket', category: 'security', title: 'Public storage bucket listing', severity: 'high', cls: 'probe', optIn: true, since: '0.9.0', description: 'Storage bucket allows anonymous listing — exposes all uploaded files to anyone.' },
 
+  // ── exposure: preview deployments ────────────────────────────────────────────────────────────────
+  { id: 'exposure.preview-deployments', category: 'exposure', title: 'Preview/staging deployments exposed', severity: 'medium', cls: 'probe', optIn: true, since: '0.9.0', description: 'Finds reachable preview/staging deployments (subdomains, *.vercel.app, *.pages.dev, etc.) that are public without auth or leak debug info.' },
+
+  // ── white-box: repo secret scan ──────────────────────────────────────────────────────────────────
+  { id: 'repo.secrets', category: 'secrets', title: 'Repository secret scan', severity: 'high', cls: 'white-box', optIn: true, since: '0.9.0', description: 'Scans working tree and git history for leaked secrets (AWS, GCP, Stripe, OpenAI, private keys, DB connection strings, .env files). Requires authorized repo connection.' },
+
   // Passive checks that can run without ownership verification (lite tier allowed)
   { id: 'dns.dkim', category: 'dns', title: 'DKIM record', severity: 'medium', cls: 'probe', since: '0.9.0', description: 'Looks up common DKIM selectors (google, selector1/2, k1/k2, etc.) to verify email signing is configured.' },
   { id: 'csrf.token', category: 'security', title: 'CSRF token presence', severity: 'medium', cls: 'passive', since: '0.9.0', description: 'Passive check: state-changing HTML forms should carry a CSRF token or rely on SameSite cookies.' },

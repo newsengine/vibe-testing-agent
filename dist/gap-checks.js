@@ -300,6 +300,94 @@ export async function disclosurePiiInResponseCheck(ctx) {
     }
     return findings;
 }
+// ── Preview/staging deployments check (verified only) ────────────────────────────────────────────
+const PREVIEW_SUBDOMAINS = ['staging', 'stage', 'dev', 'development', 'preview', 'beta', 'test', 'qa', 'uat', 'demo', 'sandbox', 'canary'];
+const HOSTING_PATTERNS = [
+    { suffix: '.pages.dev', provider: 'Cloudflare Pages' },
+    { suffix: '.vercel.app', provider: 'Vercel' },
+    { suffix: '.netlify.app', provider: 'Netlify' },
+    { suffix: '.workers.dev', provider: 'Cloudflare Workers' },
+    { suffix: '.fly.dev', provider: 'Fly.io' },
+    { suffix: '.railway.app', provider: 'Railway' },
+    { suffix: '.render.com', provider: 'Render' },
+    { suffix: '.herokuapp.com', provider: 'Heroku' },
+];
+/**
+ * exposure.preview-deployments: Find reachable preview/staging deployments.
+ * Only probes hosts under the verified domain or clearly linked from it.
+ */
+export async function exposurePreviewDeploymentsCheck(ctx) {
+    const findings = [];
+    const hostname = ctx.url.hostname;
+    const apex = getApexDomain(hostname);
+    const checkedHosts = new Set();
+    const extractLinkedHosts = (html) => {
+        const hosts = [];
+        const hrefPattern = /href\s*=\s*["']https?:\/\/([^"'/]+)/gi;
+        const srcPattern = /src\s*=\s*["']https?:\/\/([^"'/]+)/gi;
+        for (const pattern of [hrefPattern, srcPattern]) {
+            for (const match of html.matchAll(pattern)) {
+                const linkedHost = match[1].toLowerCase();
+                for (const { suffix, provider: _ } of HOSTING_PATTERNS) {
+                    if (linkedHost.endsWith(suffix)) {
+                        const projectName = linkedHost.slice(0, -suffix.length);
+                        if (projectName.includes(apex.split('.')[0]) || projectName.length < 20) {
+                            hosts.push(linkedHost);
+                        }
+                    }
+                }
+            }
+        }
+        return [...new Set(hosts)];
+    };
+    const checkPreviewHost = async (host, source) => {
+        if (checkedHosts.has(host))
+            return;
+        checkedHosts.add(host);
+        const testUrl = `https://${host}/`;
+        const res = await safeFetch(testUrl, { redirect: 'follow', headers: ctx.opts.extraHeaders }, ctx.opts.timeoutMs);
+        if (!res)
+            return;
+        if (res.ok) {
+            const body = await res.text();
+            const issues = [];
+            if (/<title>\s*debug|<pre>.*stack\s*trace/i.test(body)) {
+                issues.push('debug mode enabled');
+            }
+            if (/(?:api_key|secret|password)\s*[:=]\s*["'][^"']+["']/i.test(body)) {
+                issues.push('potential secrets in response');
+            }
+            if (!res.headers.get('www-authenticate') && !body.includes('login') && !body.includes('sign in')) {
+                issues.push('no authentication required');
+            }
+            if (issues.length > 0) {
+                findings.push(f('exposure', 'exposure.preview-deployments', `Public preview deployment at ${host}`, 'medium', false, `Found via ${source}: ${issues.join(', ')}`, 'Either protect preview deployments with authentication (e.g., Vercel Password Protection, Cloudflare Access), or ensure they don\'t expose sensitive data or debug information.'));
+            }
+        }
+    };
+    for (const subdomain of PREVIEW_SUBDOMAINS) {
+        const previewHost = `${subdomain}.${apex}`;
+        await checkPreviewHost(previewHost, 'subdomain enumeration');
+    }
+    const linkedHosts = extractLinkedHosts(ctx.html);
+    for (const linkedHost of linkedHosts) {
+        await checkPreviewHost(linkedHost, 'page reference');
+    }
+    if (findings.length === 0 && checkedHosts.size > 0) {
+        return [f('exposure', 'exposure.preview-deployments', 'No exposed preview deployments found', 'info', true, `Checked ${checkedHosts.size} potential preview hosts`)];
+    }
+    return findings;
+}
+function getApexDomain(hostname) {
+    const parts = hostname.split('.').filter(Boolean);
+    if (parts.length <= 2)
+        return hostname;
+    const lastTwo = parts.slice(-2).join('.');
+    const MULTI_LABEL_SUFFIXES = new Set(['com.au', 'net.au', 'org.au', 'co.uk', 'org.uk', 'co.nz', 'co.jp', 'com.br', 'co.in']);
+    if (MULTI_LABEL_SUFFIXES.has(lastTwo))
+        return parts.slice(-3).join('.');
+    return lastTwo;
+}
 export const GAP_CHECK_CONFIG = {
     'auth.login-rate-limit': { requiresVerification: true },
     'auth.reset-token-reuse': { requiresVerification: true },
@@ -315,6 +403,8 @@ export const GAP_CHECK_CONFIG = {
     'upload.content-type': { requiresVerification: true },
     'db.firebase-rules': { requiresVerification: true },
     'storage.public-bucket': { requiresVerification: true },
+    'exposure.preview-deployments': { requiresVerification: true },
+    'repo.secrets': { requiresVerification: true },
     'dns.dkim': { requiresVerification: false },
     'csrf.token': { requiresVerification: false },
     'disclosure.pii-in-response': { requiresVerification: false },
@@ -337,6 +427,7 @@ export async function gapChecks(ctx, verified) {
         results.push(...await authzIdorSequentialCheck(ctx));
         results.push(...await apiWebhookUnsignedCheck(ctx));
         results.push(...await dbFirebaseRulesCheck(ctx));
+        results.push(...await exposurePreviewDeploymentsCheck(ctx));
     }
     return results;
 }

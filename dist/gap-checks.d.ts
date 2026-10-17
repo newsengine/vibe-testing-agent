@@ -77,6 +77,11 @@ export declare function csrfTokenCheck(ctx: ScanContext): Promise<Finding[]>;
  * Passive regex scan - safe for unverified targets.
  */
 export declare function disclosurePiiInResponseCheck(ctx: ScanContext): Promise<Finding[]>;
+/**
+ * exposure.preview-deployments: Find reachable preview/staging deployments.
+ * Only probes hosts under the verified domain or clearly linked from it.
+ */
+export declare function exposurePreviewDeploymentsCheck(ctx: ScanContext): Promise<Finding[]>;
 export interface GapCheckConfig {
     requiresVerification: boolean;
 }

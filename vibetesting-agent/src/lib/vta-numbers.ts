@@ -168,10 +168,12 @@ export const VTA_NUMBERS: Record<string, number> = {
   "storage.public-bucket": 178,
   "dns.dkim": 179,
   "csrf.token": 180,
-  "disclosure.pii-in-response": 181
+  "disclosure.pii-in-response": 181,
+  "exposure.preview-deployments": 182,
+  "repo.secrets": 183
 };
 
-const DYNAMIC_FAMILIES: string[] = ["header.","disclosure.","cookie.","cookie-secure.","cookie-prefix.","jwt.","api.cors","api.rate-limit","xss.reflected","secret.","exposed","dir-listing","debug-leak","graphql.introspection","api.unauth-data","api.unauth-write","components.server-cve.","components.","atlas.model-artifact","atlas.model-enum","atlas.data-leak","atlas.cost-dos","atlas.prompt-injection","authz.idor-sequential","api.webhook-unsigned","db.firebase-rules","storage.public-bucket"];
+const DYNAMIC_FAMILIES: string[] = ["header.","disclosure.","cookie.","cookie-secure.","cookie-prefix.","jwt.","api.cors","api.rate-limit","xss.reflected","secret.","exposed","dir-listing","debug-leak","graphql.introspection","api.unauth-data","api.unauth-write","components.server-cve.","components.","atlas.model-artifact","atlas.model-enum","atlas.data-leak","atlas.cost-dos","atlas.prompt-injection","authz.idor-sequential","api.webhook-unsigned","db.firebase-rules","storage.public-bucket","exposure.preview-deployments","repo.secrets"];
 
 export function vtaNumber(id: string): number | null {
   if (id in VTA_NUMBERS) return VTA_NUMBERS[id];
