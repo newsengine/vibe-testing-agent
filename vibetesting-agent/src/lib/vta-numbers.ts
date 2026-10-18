@@ -151,10 +151,29 @@ export const VTA_NUMBERS: Record<string, number> = {
   "atlas.cost-dos": 146,
   "atlas.prompt-injection": 147,
   "atlas.model-enum": 148,
-  "components.server-cve.": 149
+  "components.server-cve.": 149,
+  "auth.login-rate-limit": 165,
+  "auth.reset-token-reuse": 166,
+  "auth.session-invalidation": 167,
+  "auth.email-plus-alias": 168,
+  "authz.idor-sequential": 169,
+  "api.webhook-unsigned": 170,
+  "api.idempotency": 171,
+  "api.key-revocation": 172,
+  "agent.prompt-injection": 173,
+  "agent.llm-data-leak": 174,
+  "agent.llm-rate-limit": 175,
+  "upload.content-type": 176,
+  "db.firebase-rules": 177,
+  "storage.public-bucket": 178,
+  "dns.dkim": 179,
+  "csrf.token": 180,
+  "disclosure.pii-in-response": 181,
+  "exposure.preview-deployments": 182,
+  "repo.secrets": 183
 };
 
-const DYNAMIC_FAMILIES: string[] = ["header.","disclosure.","cookie.","cookie-secure.","cookie-prefix.","jwt.","api.cors","api.rate-limit","xss.reflected","secret.","exposed","dir-listing","debug-leak","graphql.introspection","api.unauth-data","api.unauth-write","components.server-cve.","components.","atlas.model-artifact","atlas.model-enum","atlas.data-leak","atlas.cost-dos","atlas.prompt-injection"];
+const DYNAMIC_FAMILIES: string[] = ["header.","disclosure.","cookie.","cookie-secure.","cookie-prefix.","jwt.","api.cors","api.rate-limit","xss.reflected","secret.","exposed","dir-listing","debug-leak","graphql.introspection","api.unauth-data","api.unauth-write","components.server-cve.","components.","atlas.model-artifact","atlas.model-enum","atlas.data-leak","atlas.cost-dos","atlas.prompt-injection","authz.idor-sequential","api.webhook-unsigned","db.firebase-rules","storage.public-bucket","exposure.preview-deployments","repo.secrets"];
 
 export function vtaNumber(id: string): number | null {
   if (id in VTA_NUMBERS) return VTA_NUMBERS[id];

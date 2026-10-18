@@ -73,6 +73,15 @@ type OwnershipInfo = {
     altHost: string;
     record: string;
   };
+  file: {
+    url: string;
+    content: string;
+    instructions: string;
+  };
+  meta: {
+    tag: string;
+    instructions: string;
+  };
 };
 
 /** Dual ownership: domain email + inbox click, or DNS TXT */
@@ -92,7 +101,7 @@ export function OwnershipVerifyPanel({
   const router = useRouter();
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState<'dns' | 'email' | 'send' | null>(null);
+  const [loading, setLoading] = useState<'dns' | 'email' | 'file' | 'meta' | 'send' | null>(null);
   const [inboxVerified, setInboxVerified] = useState(emailVerified);
   const [devLink, setDevLink] = useState('');
   const [info, setInfo] = useState<OwnershipInfo | null>(null);
@@ -136,7 +145,7 @@ export function OwnershipVerifyPanel({
     if (data.devVerifyUrl) setDevLink(data.devVerifyUrl);
   }
 
-  async function verify(method: 'dns' | 'email') {
+  async function verify(method: 'dns' | 'email' | 'file' | 'meta') {
     setLoading(method);
     setErr('');
     setMsg('');
@@ -151,7 +160,13 @@ export function OwnershipVerifyPanel({
       setErr(data.error || 'Verification failed');
       return;
     }
-    setMsg(method === 'email' ? 'Verified via domain email!' : 'Verified via DNS!');
+    const messages: Record<'dns' | 'email' | 'file' | 'meta', string> = {
+      email: 'Verified via domain email!',
+      dns: 'Verified via DNS!',
+      file: 'Verified via well-known file!',
+      meta: 'Verified via homepage meta tag!',
+    };
+    setMsg(messages[method]);
     router.refresh();
   }
 
@@ -238,6 +253,50 @@ export function OwnershipVerifyPanel({
           disabled={loading !== null}
         >
           {loading === 'dns' ? 'Checking DNS…' : 'Check DNS & verify'}
+        </button>
+      </div>
+
+      {/* Method 3: Well-known file */}
+      <div className="rounded-lg border border-[var(--edge)] bg-black/20 p-4">
+        <div className="mono text-xs uppercase tracking-wider text-[var(--lime)]">Option 3 · Well-known file</div>
+        <p className="mt-2 text-sm text-[var(--mut)]">
+          Create a file at{' '}
+          <code className="text-[var(--ink)]">/.well-known/vibetesting-verify.txt</code>{' '}
+          containing exactly:
+        </p>
+        <code className="mono mt-2 block break-all rounded bg-black/40 p-2 text-xs text-[var(--lime)]">
+          {info?.file?.content || verifyToken}
+        </code>
+        <p className="mt-2 text-xs text-[var(--mut)]">
+          File URL:{' '}
+          <code className="text-[var(--ink)]">{info?.file?.url || `https://${hostname}/.well-known/vibetesting-verify.txt`}</code>
+        </p>
+        <button
+          type="button"
+          className="btn-primary mt-3 text-xs"
+          onClick={() => verify('file')}
+          disabled={loading !== null}
+        >
+          {loading === 'file' ? 'Checking file…' : 'Check file & verify'}
+        </button>
+      </div>
+
+      {/* Method 4: Meta tag */}
+      <div className="rounded-lg border border-[var(--edge)] bg-black/20 p-4">
+        <div className="mono text-xs uppercase tracking-wider text-[var(--lime)]">Option 4 · Meta tag</div>
+        <p className="mt-2 text-sm text-[var(--mut)]">
+          Add this meta tag to your homepage <code className="text-[var(--ink)]">&lt;head&gt;</code>:
+        </p>
+        <code className="mono mt-2 block break-all rounded bg-black/40 p-2 text-xs text-[var(--lime)]">
+          {info?.meta?.tag || `<meta name="vibetesting-verify" content="${verifyToken}">`}
+        </code>
+        <button
+          type="button"
+          className="btn-primary mt-3 text-xs"
+          onClick={() => verify('meta')}
+          disabled={loading !== null}
+        >
+          {loading === 'meta' ? 'Checking homepage…' : 'Check meta tag & verify'}
         </button>
       </div>
 

@@ -149,9 +149,9 @@ export const POLICY_LABELS: Record<Policy, { label: string; description: string 
  * (per cookie, per script, per crawl page, NVD recon) grow further at runtime.
  */
 export const SUITE_STATS = {
-  categories: 13,
-  /** Fixed black-box probes across headers, paths, secrets, DNS, framework, SEO… */
-  blackBoxProbes: 150,
+  categories: 14,
+  /** Fixed black-box probes across headers, paths, secrets, DNS, framework, SEO, new gap checks… */
+  blackBoxProbes: 168,
   /** retire.js-style version ranges in the client component feed */
   clientVulnRanges: 213,
   clientLibs: 12,
@@ -160,10 +160,10 @@ export const SUITE_STATS = {
   exposurePaths: 27,
   secretPatterns: 12,
   /** OWASP ASVS 4.0.3 Level 1 black-box-testable requirements covered */
-  asvsL1Covered: 23,
-  asvsL1Total: 25,
+  asvsL1Covered: 25,
+  asvsL1Total: 27,
   /** Headline: probes + client vuln ranges (rules the full suite can evaluate) */
-  ruleSurface: 150 + 213,
+  ruleSurface: 168 + 213,
 } as const;
 
 /** Opt-in / adjacent modes beyond the default black-box pass. */

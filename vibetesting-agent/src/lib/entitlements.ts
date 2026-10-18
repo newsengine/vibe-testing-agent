@@ -148,3 +148,39 @@ export async function setUserPlan(
     })
     .where(eq(schema.users.id, userId));
 }
+
+/**
+ * Gap analysis checks: determine which checks can run based on project verification status.
+ * Passive checks (dns.dkim, csrf.token, disclosure.pii-in-response) run without verification.
+ * Active checks (auth.*, authz.*, api.*, agent.*, upload.*, db.*, storage.*) require verified ownership.
+ */
+export const PASSIVE_GAP_CHECKS = new Set([
+  'dns.dkim',
+  'csrf.token',
+  'disclosure.pii-in-response',
+  'exposure.preview-deployments',
+]);
+
+export const VERIFIED_GAP_CHECKS = new Set([
+  'auth.login-rate-limit',
+  'auth.reset-token-reuse',
+  'auth.session-invalidation',
+  'auth.email-plus-alias',
+  'authz.idor-sequential',
+  'api.webhook-unsigned',
+  'api.idempotency',
+  'api.key-revocation',
+  'agent.prompt-injection',
+  'agent.llm-data-leak',
+  'agent.llm-rate-limit',
+  'upload.content-type',
+  'db.firebase-rules',
+  'storage.public-bucket',
+  'repo.secrets',
+]);
+
+export function canRunGapCheck(checkId: string, verified: boolean): boolean {
+  if (PASSIVE_GAP_CHECKS.has(checkId)) return true;
+  if (VERIFIED_GAP_CHECKS.has(checkId)) return verified;
+  return true;
+}

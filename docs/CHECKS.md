@@ -3,7 +3,7 @@
 > Generated from `src/catalog.ts` by `npm run catalog`. Do not edit by hand — edit the catalog and regenerate.
 > `tests/catalog.test.ts` fails the build if the engine emits a finding id that is not listed here, or if this file is stale.
 
-**149** scanner checks + **10** Dynamic Business CMS critical-path checks + **5** white-box testkit helpers.
+**168** scanner checks + **10** Dynamic Business CMS critical-path checks + **5** white-box testkit helpers.
 
 Legend — how each check reaches its verdict:
 
@@ -54,6 +54,19 @@ Legend — how each check reaches its verdict:
 | VTA-0030 | `api.cors*` | CORS on discovered API route | high | active | on | — | 0.7.0 | A discovered /api/* route reflects an arbitrary Origin with credentials (auto-generalized from --cors-path). |
 | VTA-0031 | `api.rate-limit*` | Rate limiting on API routes (auto) | medium | active | opt-in | — | 0.7.0 | Discovered expensive /api/* routes are bursted and expected to 429 (--rate-limit-scan; high on LLM/compute paths). |
 | VTA-0032 | `xss.reflected*` | Reflected XSS / HTML injection | high | active | opt-in | — | 0.7.0 | A benign marker injected into a public query param reflects unencoded into the HTML (--xss). |
+| VTA-0165 | `auth.login-rate-limit` | Login rate limit | medium | active | opt-in | — | 0.9.0 | Tests if login endpoints throttle after a few failed attempts (5 rapid bad logins should trigger 429 or lockout). |
+| VTA-0166 | `auth.reset-token-reuse` | Password reset token reuse | high | active | opt-in | — | 0.9.0 | Reset links should expire and work only once — reuse of a clicked link should fail. |
+| VTA-0167 | `auth.session-invalidation` | Session invalidation on logout | medium | active | opt-in | — | 0.9.0 | Replaying a session cookie after logout should return 401, not authenticated content. |
+| VTA-0168 | `auth.email-plus-alias` | Email plus-alias handling | low | active | opt-in | — | 0.9.0 | Checks if user+tag@domain is handled correctly (normalized or consistently) to prevent account confusion. |
+| VTA-0169 | `authz.idor-sequential` | Sequential ID IDOR | high | active | opt-in | — | 0.9.0 | Incrementing an object ID returns another user's data — the classic BOLA/IDOR vulnerability. |
+| VTA-0170 | `api.webhook-unsigned` | Webhook signature check | high | active | opt-in | — | 0.9.0 | Webhook endpoints should reject payloads without a valid signature (Stripe-Signature, X-Hub-Signature, etc.). |
+| VTA-0171 | `api.idempotency` | Idempotency / double-submit | medium | active | opt-in | — | 0.9.0 | Replaying a create request should not duplicate the resource (idempotency key or dedup logic). |
+| VTA-0172 | `api.key-revocation` | Revoked API key rejection | high | active | opt-in | — | 0.9.0 | A revoked test key should get 401, not authenticated access. |
+| VTA-0176 | `upload.content-type` | Upload content-type handling | medium | active | opt-in | — | 0.9.0 | Uploaded .html/.svg should be served as attachment or with nosniff, not executed as HTML. |
+| VTA-0177 | `db.firebase-rules` | Firebase/Supabase storage rules | high | probe | opt-in | — | 0.9.0 | Read-only check for publicly listable Firebase Storage buckets or open Supabase RLS. |
+| VTA-0178 | `storage.public-bucket` | Public storage bucket listing | high | probe | opt-in | — | 0.9.0 | Storage bucket allows anonymous listing — exposes all uploaded files to anyone. |
+| VTA-0180 | `csrf.token` | CSRF token presence | medium | passive | on | A01; CWE-352 | 0.9.0 | Passive check: state-changing HTML forms should carry a CSRF token or rely on SameSite cookies. |
+| VTA-0181 | `disclosure.pii-in-response` | PII in API response | medium | passive | on | A05; API9:2023; CWE-200 | 0.9.0 | Passive regex scan of API responses for credit cards, SSNs, password hashes, or bearer tokens. |
 
 ## Leaked secrets
 
@@ -61,6 +74,7 @@ Legend — how each check reaches its verdict:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | VTA-0033 | `secret.*` | Hardcoded secret in client code | high | probe | on | A02; CWE-798 CWE-312 | 0.1.0 | API/private keys leaked in the HTML or same-origin JS bundles (secret.none when clean). |
 | VTA-0034 | `sourcemap.exposed` | Public source maps | medium | probe | on | A05; CWE-540 | 0.5.0 | Reachable .map files expose the original unminified source. |
+| VTA-0183 | `repo.secrets` | Repository secret scan | high | white-box | — | — | 0.9.0 | Scans working tree and git history for leaked secrets (AWS, GCP, Stripe, OpenAI, private keys, DB connection strings, .env files). CLI: `--repo <path>`. Hosted: verified project + authorized repo connection. |
 
 ## Exposed files & debug
 
@@ -75,6 +89,7 @@ Legend — how each check reaches its verdict:
 | VTA-0041 | `exposure.none` | No exposed surfaces | info | probe | on | — | 0.2.0 | Clean-signal pass emitted when nothing above fired. |
 | VTA-0042 | `api.unauth-data*` | API route returns data without auth | high | probe | on | — | 0.7.0 | A discovered/wordlist /api/* route answers 200 + JSON data with no auth challenge (#24). |
 | VTA-0043 | `api.unauth-write*` | API route accepts unauth write | high | active | opt-in | — | 0.7.0 | A write-suggestive route accepts a benign unauthenticated POST (2xx) (--api-write; #24). |
+| VTA-0182 | `exposure.preview-deployments` | Preview/staging deployments exposed | medium | probe | on | — | 0.9.0 | Finds reachable preview/staging deployments (subdomains, *.vercel.app, *.pages.dev, etc.) that are public without auth or leak debug info. Runs by default; only probes hosts under the target domain or linked from it. |
 
 ## DNS & email
 
@@ -85,6 +100,7 @@ Legend — how each check reaches its verdict:
 | VTA-0064 | `dns.dmarc` | DMARC policy | medium | probe | on | — | 0.4.0 | A DMARC record with an enforcing policy exists. |
 | VTA-0065 | `dns.caa` | CAA record | low | probe | on | — | 0.4.0 | A CAA record limits which CAs can issue certs. |
 | VTA-0066 | `dns.dangling-cname` | Dangling CNAME (takeover) | high | probe | on | — | 0.4.0 | A CNAME points at an unclaimed provider host (subdomain-takeover risk). |
+| VTA-0179 | `dns.dkim` | DKIM record | medium | probe | on | — | 0.9.0 | Looks up common DKIM selectors (google, selector1/2, k1/k2, etc.) to verify email signing is configured. |
 
 ## Reliability
 
@@ -220,6 +236,9 @@ Legend — how each check reaches its verdict:
 
 | # | Check ID | Title | Severity | Class | Default | Standards | Since | What it detects |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| VTA-0173 | `agent.prompt-injection` | Prompt injection (owned app) | high | active | opt-in | AML.T0051 | 0.9.0 | Extended prompt-injection probe for verified owned apps — benign canary sent to chat endpoints. |
+| VTA-0174 | `agent.llm-data-leak` | LLM cross-tenant data leak | high | active | opt-in | AML.T0057 | 0.9.0 | Ask the app's bot for another tenant's data and expect a refusal. |
+| VTA-0175 | `agent.llm-rate-limit` | LLM endpoint rate limit | medium | active | opt-in | AML.T0034 | 0.9.0 | Small burst against the user's AI endpoint; catches runaway-cost exposure (not a load test). |
 | VTA-0141 | `atlas.detected` | AI/LLM surface detected | info | passive | on | — | 0.7.0 | An AI/LLM surface was fingerprinted, so ATLAS checks ran (info). |
 | VTA-0142 | `atlas.none` | No AI/LLM surface | info | passive | on | — | 0.7.0 | No AI surface detected — ATLAS checks skipped (clean-signal pass). |
 | VTA-0143 | `atlas.model-artifact*` | Model artifact publicly downloadable | high | probe | on | AML.T0044 | 0.7.0 | Model weights/artifacts (.gguf/.safetensors/.onnx/.pt/.pkl/.bin) are web-served. |

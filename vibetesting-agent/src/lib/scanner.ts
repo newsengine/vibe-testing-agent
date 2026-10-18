@@ -8,6 +8,7 @@ import {
   buildSecurityReviewMarkdown,
   buildSecurityReviewHtml,
 } from './security-review';
+import { canRunGapCheck } from './entitlements';
 
 export interface Finding {
   id: string;
@@ -208,7 +209,7 @@ export type ScanProgressHandler = (event: ScanProgressEvent) => void | Promise<v
 /** Workers-safe black-box scan using fetch only. */
 export async function runWorkerScan(
   url: string,
-  opts: { onProgress?: ScanProgressHandler; extraHeaders?: Record<string, string> } = {},
+  opts: { onProgress?: ScanProgressHandler; extraHeaders?: Record<string, string>; verified?: boolean } = {},
 ): Promise<Finding[]> {
   const onProgress = opts.onProgress;
   const extraHeaders = opts.extraHeaders || {};
@@ -460,6 +461,16 @@ export async function runWorkerScan(
     /* optional */
   }
 
+  await emit({ type: 'phase', category: 'dns', message: 'Gap checks (DKIM, CSRF, PII, preview hosts)…' });
+  try {
+    const gap = await runWorkerGapChecks(url, html, extraHeaders, ua, opts.verified === true);
+    for (const g of gap) {
+      await push(g.category, g.id, g.title, g.severity, g.pass, g.detail, g.fix);
+    }
+  } catch {
+    /* optional */
+  }
+
   const failed = findings.filter((x) => !x.pass).length;
   await emit({
     type: 'done',
@@ -474,6 +485,7 @@ async function tryMonorepoProbe(
   url: string,
   mode: ScanMode,
   extraHeaders?: Record<string, string>,
+  opts: { verified?: boolean; repoPath?: string } = {},
 ): Promise<Finding[] | null> {
   try {
     // Only works in Node local monorepo
@@ -493,6 +505,9 @@ async function tryMonorepoProbe(
       timeoutMs: 15000,
       maxCrawl: mode === 'crawl' ? 40 : 15,
       extraHeaders,
+      verified: opts.verified,
+      authorizedGap: opts.verified,
+      repoPath: opts.verified ? opts.repoPath : undefined,
     })) as Finding[];
   } catch {
     return null;
@@ -509,15 +524,19 @@ export async function runScan(
     forceWorker?: boolean;
     /** Same-origin Cookie / Authorization for authenticated scans */
     extraHeaders?: Record<string, string>;
+    /** Project ownership verified — enables verified-only gap checks. */
+    verified?: boolean;
+    /** Local repo path for repo.secrets (CLI/monorepo only). */
+    repoPath?: string;
   } = {},
 ): Promise<ScanResult> {
   const mode = opts.mode === 'lite' ? 'fast' : opts.mode || 'fast';
   let findings: Finding[] | null = null;
   if (!opts.forceWorker && !opts.onProgress) {
-    findings = await tryMonorepoProbe(url, mode, opts.extraHeaders);
+    findings = await tryMonorepoProbe(url, mode, opts.extraHeaders, { verified: opts.verified, repoPath: opts.repoPath });
   } else if (!opts.forceWorker && opts.onProgress) {
     await opts.onProgress({ type: 'phase', message: 'Trying local monorepo probe…' });
-    findings = await tryMonorepoProbe(url, mode, opts.extraHeaders);
+    findings = await tryMonorepoProbe(url, mode, opts.extraHeaders, { verified: opts.verified, repoPath: opts.repoPath });
     if (findings) {
       await opts.onProgress({
         type: 'phase',
@@ -541,6 +560,7 @@ export async function runScan(
     findings = await runWorkerScan(url, {
       onProgress: opts.onProgress,
       extraHeaders: opts.extraHeaders,
+      verified: opts.verified,
     });
   }
 
@@ -557,4 +577,161 @@ export async function runScan(
     reportHtml: buildReportHtml(url, findings, score, grade, { mode }),
     baselineDiff: diffBaseline(findings, opts.baselineIds ?? null),
   };
+}
+
+const WORKER_DKIM_SELECTORS = ['google', 'selector1', 'selector2', 'k1', 'k2', 'dkim', 'default'];
+const WORKER_PREVIEW_SUBS = ['staging', 'dev', 'preview', 'beta', 'test'];
+
+function workerApex(hostname: string): string {
+  const parts = hostname.split('.').filter(Boolean);
+  if (parts.length <= 2) return hostname;
+  const lastTwo = parts.slice(-2).join('.');
+  const multi = new Set(['com.au', 'co.uk', 'org.uk', 'co.nz', 'co.jp', 'com.br', 'co.in']);
+  return multi.has(lastTwo) ? parts.slice(-3).join('.') : lastTwo;
+}
+
+/**
+ * Workers-safe subset of gap checks. Default: dns.dkim, csrf.token, disclosure.pii-in-response,
+ * exposure.preview-deployments. Verified-only checks run when `verified` is true (canRunGapCheck).
+ */
+async function runWorkerGapChecks(
+  url: string,
+  html: string,
+  extraHeaders: Record<string, string>,
+  ua: string,
+  verified: boolean,
+): Promise<Finding[]> {
+  const out: Finding[] = [];
+  const origin = new URL(url).origin;
+  const hostname = new URL(url).hostname;
+  const apex = workerApex(hostname);
+  const hdrs = { 'user-agent': ua, ...extraHeaders };
+
+  const add = (f: Finding) => {
+    if (!canRunGapCheck(f.id, verified)) return;
+    out.push(f);
+  };
+
+  if (canRunGapCheck('dns.dkim', verified)) {
+    const found: string[] = [];
+    for (const selector of WORKER_DKIM_SELECTORS) {
+      try {
+        const doh = await fetch(
+          `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(`${selector}._domainkey.${apex}`)}&type=TXT`,
+          { headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(5000) },
+        );
+        if (!doh.ok) continue;
+        const data = (await doh.json()) as { Answer?: { data: string }[] };
+        const txt = (data.Answer || []).map((a) => a.data).join(' ');
+        if (/v=DKIM1/i.test(txt)) {
+          found.push(selector);
+          if (found.length >= 2) break;
+        }
+      } catch {
+        /* NXDOMAIN */
+      }
+    }
+    add({
+      id: 'dns.dkim',
+      category: 'dns',
+      title: found.length ? 'DKIM records present' : 'No DKIM records found',
+      severity: found.length ? 'info' : 'medium',
+      pass: found.length > 0,
+      detail: found.length ? `Found DKIM on selector(s): ${found.join(', ')} at ${apex}` : `No DKIM records on common selectors for ${apex}`,
+      fix: found.length ? undefined : 'Configure DKIM signing for outbound email. Add a DKIM TXT record provided by your email service.',
+    });
+  }
+
+  if (canRunGapCheck('csrf.token', verified)) {
+    const forms = [...html.matchAll(/<form\b[^>]*>([\s\S]*?)<\/form>/gi)];
+    const stateful = forms.filter((m) => /method\s*=\s*["']?post["']?/i.test(m[0]));
+    if (stateful.length) {
+      const withToken = stateful.filter((m) =>
+        /name\s*=\s*["']?(?:csrf|_csrf|csrftoken|csrf_token|_token|authenticity_token)["']?/i.test(m[0]),
+      );
+      const ok = withToken.length === stateful.length;
+      add({
+        id: 'csrf.token',
+        category: 'security',
+        title: ok ? 'Forms have CSRF tokens' : 'Forms missing CSRF tokens',
+        severity: ok ? 'info' : 'medium',
+        pass: ok,
+        detail: ok
+          ? `${stateful.length} state-changing form(s) carry CSRF tokens`
+          : `${stateful.length - withToken.length} of ${stateful.length} state-changing form(s) lack a CSRF token`,
+        fix: ok ? undefined : 'Add CSRF tokens to all state-changing forms, or ensure session cookies use SameSite=Strict/Lax.',
+      });
+    }
+  }
+
+  if (canRunGapCheck('disclosure.pii-in-response', verified)) {
+    for (const path of ['/api/user', '/api/me', '/api/profile', '/api/config']) {
+      try {
+        const res = await fetch(origin + path, { headers: hdrs, signal: AbortSignal.timeout(6000) });
+        if (!res.ok) continue;
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (!ct.includes('json')) continue;
+        const body = await res.text();
+        if (/<html/i.test(body)) continue;
+        if (
+          /"(?:email|email_address|emailAddress)"\s*:\s*"[^"]+@/i.test(body) ||
+          /\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}/.test(body)
+        ) {
+          add({
+            id: 'disclosure.pii-in-response',
+            category: 'security',
+            title: 'PII in API response',
+            severity: 'medium',
+            pass: false,
+            detail: `GET ${path} response contains PII pattern`,
+            fix: 'Avoid exposing emails, hashes, or tokens in unauthenticated API responses.',
+          });
+          break;
+        }
+      } catch {
+        /* skip */
+      }
+    }
+  }
+
+  if (canRunGapCheck('exposure.preview-deployments', verified)) {
+    const checked = new Set<string>();
+    const flagHost = async (host: string, source: string) => {
+      if (checked.has(host) || host === hostname) return;
+      checked.add(host);
+      try {
+        const res = await fetch(`https://${host}/`, { headers: hdrs, signal: AbortSignal.timeout(5000), redirect: 'follow' });
+        if (!res.ok) return;
+        const body = await res.text();
+        const issues: string[] = [];
+        if (/<title>\s*debug|<pre>.*stack\s*trace/i.test(body)) issues.push('debug mode enabled');
+        if (/(?:api_key|secret|password)\s*[:=]\s*["'][^"']+["']/i.test(body)) issues.push('potential secrets in response');
+        if (!res.headers.get('www-authenticate') && !/login|sign in/i.test(body)) issues.push('no authentication required');
+        if (issues.length) {
+          add({
+            id: 'exposure.preview-deployments',
+            category: 'exposure',
+            title: `Public preview deployment at ${host}`,
+            severity: 'medium',
+            pass: false,
+            detail: `Found via ${source}: ${issues.join(', ')}`,
+            fix: 'Protect preview deployments with authentication, or ensure they do not expose debug info or secrets.',
+          });
+        }
+      } catch {
+        /* unreachable */
+      }
+    };
+    for (const sub of WORKER_PREVIEW_SUBS) {
+      await flagHost(`${sub}.${apex}`, 'subdomain enumeration');
+    }
+    for (const m of html.matchAll(/href\s*=\s*["']https?:\/\/([^"'/]+)/gi)) {
+      const host = m[1].toLowerCase();
+      if (/\.(pages\.dev|vercel\.app|netlify\.app|workers\.dev)$/.test(host) && host.includes(apex.split('.')[0])) {
+        await flagHost(host, 'page reference');
+      }
+    }
+  }
+
+  return out;
 }

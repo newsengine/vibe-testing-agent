@@ -18,6 +18,8 @@
 //   --github-issues <owner/repo>    feed findings into the GitHub issue tracker (dry-run; add --apply to write)
 //   --coverage <file.json>          authenticated deep-crawl coverage map (endpoints/params/forms/apis)
 //   --authorized-active             (opt-in, AUTHORIZED) active injection engine: SQLi/SSTI/cmd/traversal on GET params
+//   --authorized-gap                (opt-in, AUTHORIZED) verified-only gap checks (login rate-limit, IDOR, unsigned webhooks, LLM probes)
+//   --repo <path>                   (opt-in) scan a local working tree + git history for leaked secrets (repo.secrets)
 //   --allow-report-only-csp         accept CSP Report-Only as a pass
 //   --max-crawl 25                  how many links/scripts to fetch-check
 //   --plugins <dir>                 dir of custom JSON plugin templates (default ./vibetesting-agent-plugins)
@@ -620,6 +622,8 @@ async function mainScan() {
         reflectedXss: flag('--xss') || !!config.reflectedXss,
         aiProbe: flag('--ai-probe') || !!config.aiProbe,
         authorizedActive: flag('--authorized-active'),
+        authorizedGap: flag('--authorized-gap') || flag('--authorized-active'),
+        repoPath: arg('--repo'),
     };
     const failOn = (arg('--fail-on') ?? config.failOn ?? 'high');
     const quiet = flag('--quiet') || !!config.quiet;
@@ -651,6 +655,10 @@ async function mainScan() {
     const findings = await probe(url, opts);
     // #43 — active injection engine (opt-in + authorized, non-destructive). Merged into findings so it flows
     // through the record/report/issue-feed like any other check.
+    if (opts.authorizedGap && !opts.authorizedActive) {
+        console.error('⚠️  Authorized gap checks (login rate-limit, sequential IDOR, unsigned webhooks) send a few extra probes.\n' +
+            '    Non-destructive and low-volume, but only run against targets you OWN or are AUTHORIZED to test.');
+    }
     if (opts.authorizedActive) {
         console.error('⚠️  Active injection testing (SQLi/SSTI/cmd/traversal) sends crafted values to GET parameters.\n' +
             '    Non-destructive (no writes/DoS/brute-force), but only run against targets you OWN or are AUTHORIZED to test.');
