@@ -5,7 +5,7 @@ JS bundle, an exposed `.env`/`.git`, broken links, missing security headers, SEO
 gaps. One command, **zero install**, no source access, no headless browser:
 
 ```bash
-npx github:newsengine/vibetesting-agent https://your-app.example.com
+npx github:newsengine/vibe-testing-agent https://your-app.example.com
 ```
 
 📄 **Landing page:** [`docs/index.html`](docs/index.html) (self-contained; serve via GitHub Pages from `/docs`).
@@ -19,15 +19,15 @@ Same shape as a Claude security artifact / `findings-for-agent.md` — ranked **
 
 ```bash
 # Every software update / /security-review
-npx github:newsengine/vibetesting-agent review https://your-app.example.com
+npx github:newsengine/vibe-testing-agent review https://your-app.example.com
 
 # Or flags on any scan:
-npx github:newsengine/vibetesting-agent https://your-app.example.com \
+npx github:newsengine/vibe-testing-agent https://your-app.example.com \
   --agent-report security-review.md \
   --gherkin features/security/hygiene.feature
 
 # New repo: scaffold suite + CI + baseline
-npx github:newsengine/vibetesting-agent init https://your-app.example.com --name my-app
+npx github:newsengine/vibe-testing-agent init https://your-app.example.com --name my-app
 ```
 
 > ### ⚖️ Authorized use only
@@ -221,7 +221,7 @@ name: security
 on: [pull_request, workflow_dispatch]
 jobs:
   probe:
-    uses: newsengine/vibetesting-agent/.github/workflows/probe.yml@main
+    uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
     with:
       url: https://your-deploy.example.com
       cors_path: /api/public/health        # optional
@@ -230,17 +230,6 @@ jobs:
       allow_report_only_csp: true           # while CSP is still Report-Only
 ```
 
-> **Private repo?** `uses:` a reusable workflow from a private repo needs org "Actions access" enabled.
-> The portable pattern that always works is **checkout-with-token + run the committed `dist/`** (this
-> repo commits its build, so there's no build step). One-time: add a fine-grained PAT with
-> **Contents: Read** on `newsengine/vibetesting-agent` as an **org secret** named `ANALPROBE_TOKEN`:
-> ```yaml
->   steps:
->     - uses: actions/checkout@v4
->       with: { repository: newsengine/vibetesting-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
->     - run: node .kit/dist/cli.js https://your-deploy.example.com --fail-on high
-> ```
-
 ### Findings in the GitHub Security tab (SARIF)
 `--sarif` emits SARIF 2.1.0; upload it so each finding becomes a code-scanning alert:
 ```yaml
@@ -248,9 +237,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { security-events: write, contents: read }
     steps:
-      - uses: actions/checkout@v4
-        with: { repository: newsengine/vibetesting-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
-      - run: node .kit/dist/cli.js https://your-deploy.example.com --sarif > probe.sarif
+      - run: npx --yes github:newsengine/vibe-testing-agent https://your-deploy.example.com --sarif > probe.sarif
         continue-on-error: true          # don't block the upload; gate in a separate step if you want
       - uses: github/codeql-action/upload-sarif@v3
         with: { sarif_file: probe.sarif }
@@ -259,17 +246,17 @@ jobs:
 ### Gate on regressions only (baseline)
 Snapshot today's debt once, commit it, then fail CI only on *new* findings:
 ```bash
-node .kit/dist/cli.js https://your-deploy.example.com --write-baseline probe-baseline.json  # once, commit the file
-node .kit/dist/cli.js https://your-deploy.example.com --baseline probe-baseline.json --fail-on medium
+npx github:newsengine/vibe-testing-agent https://your-deploy.example.com --write-baseline probe-baseline.json  # once, commit the file
+npx github:newsengine/vibe-testing-agent https://your-deploy.example.com --baseline probe-baseline.json --fail-on medium
 ```
 
 ## Use the CLI locally / ad-hoc
 ```bash
 # full scan (all 13 categories)
-npx github:newsengine/vibetesting-agent https://app.example.com
+npx github:newsengine/vibe-testing-agent https://app.example.com
 
 # scope it, gate harder, test CORS, machine-readable output
-npx github:newsengine/vibetesting-agent https://app.example.com \
+npx github:newsengine/vibe-testing-agent https://app.example.com \
   --only secrets,exposure,security \
   --cors-path /api/public/health --allow-report-only-csp \
   --fail-on medium --json

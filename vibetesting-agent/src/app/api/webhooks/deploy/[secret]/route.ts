@@ -6,6 +6,7 @@ import { planOf } from '@/lib/plans';
 import { json, errorResponse, clientIp } from '@/lib/http';
 import { rateLimit } from '@/lib/rate-limit';
 import { audit } from '@/lib/audit';
+import { resolveWebhookTarget } from '@/lib/webhook-target';
 
 /**
  * Generic deploy webhook — call after every software update:
@@ -56,21 +57,23 @@ export async function POST(req: Request, ctx: { params: Promise<{ secret: string
     const vercelUrl =
       (body?.payload as { deployment?: { url?: string } } | undefined)?.deployment?.url ||
       (body?.url as string | undefined);
-    const url = typeof vercelUrl === 'string' && vercelUrl
-      ? vercelUrl.startsWith('http')
-        ? vercelUrl
-        : `https://${vercelUrl}`
-      : project.url;
+    const candidate = typeof vercelUrl === 'string' ? vercelUrl : undefined;
+    const target = resolveWebhookTarget(project, candidate);
+    if (!target.ok) {
+      // Reject — do not fall back to project.url (that would scan production
+      // and report a false pass for an untested preview).
+      return json({ error: target.error, code: target.code }, 400);
+    }
 
     const mode = project.policy === 'launch' ? 'crawl' : project.policy === 'client' ? 'full' : 'full';
 
     const scan = await enqueueScan({
       user,
       project,
-      url,
+      url: target.url,
       mode: mode as 'full' | 'crawl',
       trigger: 'deploy',
-      authorized: project.verified || true,
+      authorized: project.verified,
       meta: body,
       runInline: true,
     });
@@ -78,7 +81,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ secret: string
     await audit('webhook.deploy', {
       userId: user.id,
       target: project.id,
-      detail: { scanId: scan.id, url },
+      detail: { scanId: scan.id, url: target.url },
       ip,
     });
 

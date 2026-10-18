@@ -5,6 +5,7 @@ import { enqueueScan, parseFindings } from '@/lib/scans';
 import { planOf } from '@/lib/plans';
 import { config } from '@/lib/config';
 import { json, errorResponse } from '@/lib/http';
+import { resolveWebhookTarget, webhookHostMismatchSummary } from '@/lib/webhook-target';
 
 export async function POST(req: Request) {
   try {
@@ -38,23 +39,42 @@ export async function POST(req: Request) {
       const results = [];
       for (const project of projects) {
         if (!project.shipCheckEnabled) continue;
+        if (!project.verified) continue;
         const users = await db.select().from(schema.users).where(eq(schema.users.id, project.userId)).limit(1);
         const user = users[0];
         if (!user || !planOf(user.plan).githubApp) continue;
 
-        const envUrl =
+        const candidate =
           deploymentStatus.environment_url ||
           deploymentStatus.target_url ||
-          deployment?.payload?.web_url ||
-          project.url;
+          deployment?.payload?.web_url;
+        const target = resolveWebhookTarget(project, candidate);
+        if (!target.ok) {
+          // Reject — do not fall back to project.url (that would scan production
+          // and report a false pass for an untested preview).
+          if (installation?.id && deployment?.sha) {
+            const [owner, name] = repo.split('/');
+            await postCheckRun({
+              installationId: String(installation.id),
+              owner,
+              repo: name,
+              headSha: deployment.sha,
+              conclusion: 'neutral',
+              title: 'Scan skipped — host mismatch',
+              summary: webhookHostMismatchSummary(project),
+            });
+          }
+          results.push({ projectId: project.id, skipped: target.code });
+          continue;
+        }
 
         const scan = await enqueueScan({
           user,
           project,
-          url: envUrl.startsWith('http') ? envUrl : `https://${envUrl}`,
+          url: target.url,
           mode: project.policy === 'launch' ? 'crawl' : 'full',
           trigger: 'github',
-          authorized: true,
+          authorized: project.verified,
           meta: { sha: deployment?.sha, repo, installationId: installation?.id },
           runInline: true,
         });
