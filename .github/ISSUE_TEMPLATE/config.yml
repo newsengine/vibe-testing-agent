@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability in vibetesting-agent itself
-    url: https://github.com/newsengine/vibetesting-agent/security/advisories/new
+    url: https://github.com/newsengine/vibe-testing-agent/security/advisories/new
     about: Please report vulnerabilities in the tool privately, not as a public issue (see SECURITY.md).

@@ -2,7 +2,7 @@
 #
 #   jobs:
 #     scan:
-#       uses: newsengine/vibetesting-agent/.github/workflows/probe.yml@main
+#       uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
 #       with:
 #         url: https://your-deploy.example.com
 #         only: secrets,exposure,security   # optional — restrict to these categories
@@ -50,4 +50,4 @@ jobs:
           if [ -n "${{ inputs.cors_path }}" ]; then ARGS+=(--cors-path "${{ inputs.cors_path }}"); fi
           if [ -n "${{ inputs.rate_limit_path }}" ]; then ARGS+=(--rate-limit-path "${{ inputs.rate_limit_path }}"); fi
           if [ "${{ inputs.allow_report_only_csp }}" = "true" ]; then ARGS+=(--allow-report-only-csp); fi
-          npx --yes github:newsengine/vibetesting-agent "${ARGS[@]}"
+          npx --yes github:newsengine/vibe-testing-agent "${ARGS[@]}"
