@@ -222,7 +222,7 @@ test('repo-secrets: GAP_CHECK_CONFIG includes repo.secrets as verified-only', ()
   assert.equal(GAP_CHECK_CONFIG['repo.secrets'].requiresVerification, true, 'repo.secrets should require verification');
 });
 
-test('repo-secrets: GAP_CHECK_CONFIG includes exposure.preview-deployments as verified-only', () => {
+test('repo-secrets: GAP_CHECK_CONFIG includes exposure.preview-deployments as default/passive', () => {
   assert.ok('exposure.preview-deployments' in GAP_CHECK_CONFIG, 'GAP_CHECK_CONFIG should include exposure.preview-deployments');
-  assert.equal(GAP_CHECK_CONFIG['exposure.preview-deployments'].requiresVerification, true, 'exposure.preview-deployments should require verification');
+  assert.equal(GAP_CHECK_CONFIG['exposure.preview-deployments'].requiresVerification, false, 'exposure.preview-deployments runs by default');
 });

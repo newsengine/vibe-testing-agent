@@ -84,10 +84,27 @@ export declare function disclosurePiiInResponseCheck(ctx: ScanContext): Promise<
 export declare function exposurePreviewDeploymentsCheck(ctx: ScanContext): Promise<Finding[]>;
 export interface GapCheckConfig {
     requiresVerification: boolean;
+    category: Finding['category'];
 }
 export declare const GAP_CHECK_CONFIG: Record<string, GapCheckConfig>;
+export declare const DEFAULT_GAP_CHECK_IDS: string[];
 export declare function isPassiveCheck(checkId: string): boolean;
+export interface GapRunOpts {
+    /** CLI `--authorized-gap` / `--authorized-active`. */
+    authorizedGap?: boolean;
+    /** Hosted: project ownership verified. */
+    verified?: boolean;
+    /** Local path for `repo.secrets`. */
+    repoPath?: string;
+    only?: Finding['category'][];
+    skip?: Finding['category'][];
+}
 /**
- * Run all gap analysis checks. For unverified projects, only passive checks run.
+ * Whether a gap check should run given CLI `--only`/`--skip`, verification, and `--repo`.
  */
-export declare function gapChecks(ctx: ScanContext, verified: boolean): Promise<Finding[]>;
+export declare function shouldRunGapCheck(checkId: string, opts?: GapRunOpts): boolean;
+/**
+ * Run gap analysis checks selected by `shouldRunGapCheck`. `repo.secrets` is handled by the caller
+ * (needs a filesystem), not here.
+ */
+export declare function gapChecks(ctx: ScanContext, verifiedOrOpts?: boolean | GapRunOpts): Promise<Finding[]>;

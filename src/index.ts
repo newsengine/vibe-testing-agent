@@ -102,10 +102,11 @@ export {
   type DbCriticalSpec, type DbCriticalRole,
 } from './db-critical.js';
 export {
-  gapChecks, GAP_CHECK_CONFIG, isPassiveCheck, exposurePreviewDeploymentsCheck,
-  dnsDkimCheck, csrfTokenCheck, disclosurePiiInResponseCheck,
+  gapChecks, GAP_CHECK_CONFIG, DEFAULT_GAP_CHECK_IDS, isPassiveCheck, shouldRunGapCheck,
+  exposurePreviewDeploymentsCheck, dnsDkimCheck, csrfTokenCheck, disclosurePiiInResponseCheck,
 } from './gap-checks.js';
 export {
   REPO_SECRET_RULES, scanContent, redactSecret, checkLiveness, isEnvFile, shouldSkipFile,
+  scanRepo, repoHitsToFindings,
   type RepoSecretRule, type RepoSecretHit, type RepoScanResult, type LivenessResult,
 } from './repo-secrets.js';

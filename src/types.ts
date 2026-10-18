@@ -72,6 +72,15 @@ export interface ScanOptions {
    *  GET parameters. Off by default; non-destructive (GET only, no writes/DoS/brute-force). Only enable on
    *  targets you own or are explicitly authorized to test. */
   authorizedActive?: boolean;
+  /** Opt-in + AUTHORIZED: run verified-only gap checks (login rate-limit, IDOR, unsigned webhooks, etc.).
+   *  Off by default. CLI: `--authorized-gap` (also implied by `--authorized-active`). Hosted: set when
+   *  the project is ownership-verified. */
+  authorizedGap?: boolean;
+  /** Hosted-scan flag: project ownership is verified. Enables the same verified-only gap checks as
+   *  `authorizedGap`. */
+  verified?: boolean;
+  /** Local path or git working tree for the opt-in `repo.secrets` scan (`--repo <path>`). */
+  repoPath?: string;
 }
 
 /** Shared, fetched-once context handed to every check so we hit the homepage a single time. */

@@ -18,6 +18,8 @@ import {
   dbFirebaseRulesCheck,
   GAP_CHECK_CONFIG,
   isPassiveCheck,
+  shouldRunGapCheck,
+  gapChecks,
 } from '../dist/gap-checks.js';
 import type { ScanContext } from '../dist/types.js';
 
@@ -43,9 +45,31 @@ test('gap: passive checks are identified correctly', () => {
   assert.equal(isPassiveCheck('dns.dkim'), true);
   assert.equal(isPassiveCheck('csrf.token'), true);
   assert.equal(isPassiveCheck('disclosure.pii-in-response'), true);
+  assert.equal(isPassiveCheck('exposure.preview-deployments'), true);
   assert.equal(isPassiveCheck('auth.login-rate-limit'), false);
   assert.equal(isPassiveCheck('authz.idor-sequential'), false);
   assert.equal(isPassiveCheck('api.webhook-unsigned'), false);
+});
+
+test('gap: shouldRunGapCheck honors only/skip and verification', () => {
+  assert.equal(shouldRunGapCheck('dns.dkim', {}), true);
+  assert.equal(shouldRunGapCheck('csrf.token', { skip: ['security'] }), false);
+  assert.equal(shouldRunGapCheck('dns.dkim', { only: ['security'] }), false);
+  assert.equal(shouldRunGapCheck('dns.dkim', { only: ['dns'] }), true);
+  assert.equal(shouldRunGapCheck('exposure.preview-deployments', {}), true);
+  assert.equal(shouldRunGapCheck('auth.login-rate-limit', {}), false);
+  assert.equal(shouldRunGapCheck('auth.login-rate-limit', { authorizedGap: true }), true);
+  assert.equal(shouldRunGapCheck('auth.login-rate-limit', { verified: true }), true);
+  assert.equal(shouldRunGapCheck('auth.login-rate-limit', { authorizedGap: true, skip: ['security'] }), false);
+  assert.equal(shouldRunGapCheck('repo.secrets', { authorizedGap: true }), false);
+  assert.equal(shouldRunGapCheck('repo.secrets', { authorizedGap: true, repoPath: '/tmp/repo' }), true);
+});
+
+test('gap: gapChecks default path does not emit verified-only findings', async () => {
+  const ctx = makeCtx('https://example.com/', '<html><body>No forms</body></html>');
+  const findings = await gapChecks(ctx, { verified: false, authorizedGap: false, skip: ['dns'] });
+  assert.ok(!findings.some((f) => f.id === 'auth.login-rate-limit'));
+  assert.ok(!findings.some((f) => f.id.startsWith('authz.')));
 });
 
 test('gap: GAP_CHECK_CONFIG has verification requirements for all new checks', () => {

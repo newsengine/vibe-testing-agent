@@ -16,6 +16,8 @@ import { hostChecks } from './host.js';
 import { pluginChecks } from './plugins.js';
 import { appStyleChecks } from './appstyle.js';
 import { atlasChecks } from './atlas.js';
+import { gapChecks } from './gap-checks.js';
+import { scanRepo, repoHitsToFindings } from './repo-secrets.js';
 
 export type { Category, Finding, ScanContext, ScanOptions, Severity };
 // Back-compat alias: ProbeOptions was the old name.
@@ -77,7 +79,36 @@ export async function probe(baseUrl: string, opts: ScanOptions = {}): Promise<Fi
   const results = await Promise.all(selected.map((c) => RUNNERS[c](ctx).catch((e): Finding[] => [
     { category: c, id: `${c}.error`, title: `${c} check crashed`, severity: 'info', pass: true, detail: String(e?.message || e) },
   ])));
-  return results.flat();
+  const findings = results.flat();
+
+  try {
+    findings.push(...await gapChecks(ctx, {
+      authorizedGap: opts.authorizedGap || opts.authorizedActive,
+      verified: opts.verified,
+      repoPath: opts.repoPath,
+      only: selected,
+      skip: opts.skip,
+    }));
+  } catch (e) {
+    findings.push({
+      category: 'security', id: 'gap.error', title: 'gap checks crashed', severity: 'info', pass: true,
+      detail: String((e as Error)?.message || e),
+    });
+  }
+
+  if (opts.repoPath && selected.includes('secrets')) {
+    try {
+      const scan = await scanRepo(opts.repoPath);
+      findings.push(...repoHitsToFindings(scan).filter((f) => selected.includes(f.category) && !(opts.skip ?? []).includes(f.category)));
+    } catch (e) {
+      findings.push({
+        category: 'secrets', id: 'repo.secrets.error', title: 'repo secret scan crashed', severity: 'info', pass: true,
+        detail: String((e as Error)?.message || e),
+      });
+    }
+  }
+
+  return findings;
 }
 
 /** Alias — reads better for the full-app use case. */

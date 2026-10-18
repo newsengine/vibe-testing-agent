@@ -276,7 +276,9 @@ npx github:newsengine/vibetesting-agent https://app.example.com \
 ```
 Flags: `--only <cats>` · `--skip <cats>` · `--cors-path <p>` · `--rate-limit-path <p>` · `--allow-report-only-csp`
 · `--max-crawl <n>` (links/scripts to fetch-check, default 25) · `--fail-on high|medium|any` · `--json` · `--sarif`
-· `--baseline <file>` · `--write-baseline <file>`.
+· `--baseline <file>` · `--write-baseline <file>`
+· `--authorized-gap` (opt-in, authorized: login rate-limit, sequential IDOR, unsigned webhooks, LLM probes; also implied by `--authorized-active`)
+· `--repo <path>` (opt-in: scan a local working tree + git history for secrets; reports redacted values only).
 
 ## Use the white-box helpers in your tests
 ```ts

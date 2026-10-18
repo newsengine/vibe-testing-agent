@@ -4,7 +4,11 @@
  * kept in sync with src/catalog.ts automatically.
  */
 
-import { CATALOG, scannerSpecs } from '../../../src/catalog.js';
+import { CATALOG_SNAPSHOT } from './catalog-snapshot';
+
+function scannerSpecs() {
+  return CATALOG_SNAPSHOT;
+}
 
 export interface TestListEntry {
   id: string;

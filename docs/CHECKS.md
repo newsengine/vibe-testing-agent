@@ -74,7 +74,7 @@ Legend — how each check reaches its verdict:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | VTA-0033 | `secret.*` | Hardcoded secret in client code | high | probe | on | A02; CWE-798 CWE-312 | 0.1.0 | API/private keys leaked in the HTML or same-origin JS bundles (secret.none when clean). |
 | VTA-0034 | `sourcemap.exposed` | Public source maps | medium | probe | on | A05; CWE-540 | 0.5.0 | Reachable .map files expose the original unminified source. |
-| VTA-0183 | `repo.secrets` | Repository secret scan | high | white-box | — | — | 0.9.0 | Scans working tree and git history for leaked secrets (AWS, GCP, Stripe, OpenAI, private keys, DB connection strings, .env files). Requires authorized repo connection. |
+| VTA-0183 | `repo.secrets` | Repository secret scan | high | white-box | — | — | 0.9.0 | Scans working tree and git history for leaked secrets (AWS, GCP, Stripe, OpenAI, private keys, DB connection strings, .env files). CLI: `--repo <path>`. Hosted: verified project + authorized repo connection. |
 
 ## Exposed files & debug
 
@@ -89,7 +89,7 @@ Legend — how each check reaches its verdict:
 | VTA-0041 | `exposure.none` | No exposed surfaces | info | probe | on | — | 0.2.0 | Clean-signal pass emitted when nothing above fired. |
 | VTA-0042 | `api.unauth-data*` | API route returns data without auth | high | probe | on | — | 0.7.0 | A discovered/wordlist /api/* route answers 200 + JSON data with no auth challenge (#24). |
 | VTA-0043 | `api.unauth-write*` | API route accepts unauth write | high | active | opt-in | — | 0.7.0 | A write-suggestive route accepts a benign unauthenticated POST (2xx) (--api-write; #24). |
-| VTA-0182 | `exposure.preview-deployments` | Preview/staging deployments exposed | medium | probe | opt-in | — | 0.9.0 | Finds reachable preview/staging deployments (subdomains, *.vercel.app, *.pages.dev, etc.) that are public without auth or leak debug info. |
+| VTA-0182 | `exposure.preview-deployments` | Preview/staging deployments exposed | medium | probe | on | — | 0.9.0 | Finds reachable preview/staging deployments (subdomains, *.vercel.app, *.pages.dev, etc.) that are public without auth or leak debug info. Runs by default; only probes hosts under the target domain or linked from it. |
 
 ## DNS & email
 

@@ -1,6 +1,11 @@
 // src/repo-secrets.ts
 // White-box repo secret scanning: scans working tree and git history for leaked secrets.
 // Opt-in, requires verified project ownership AND authorized repo connection.
+import { readdir, readFile, stat } from 'node:fs/promises';
+import { join, relative } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+const execFileAsync = promisify(execFile);
 export const REPO_SECRET_RULES = [
     // ── Cloud provider keys ──────────────────────────────────────────────────────────────────────
     { id: 'aws.akid', name: 'AWS access key ID', severity: 'high', re: /\bAKIA[0-9A-Z]{16}\b/g },
@@ -215,7 +220,7 @@ export function isEnvFile(filePath) {
 export function shouldSkipFile(filePath) {
     const skipPatterns = [
         /node_modules\//,
-        /\.git\//,
+        /(^|\/)\.git\//,
         /vendor\//,
         /dist\//,
         /build\//,
@@ -236,4 +241,130 @@ export function shouldSkipFile(filePath) {
         /\.zip$/i,
     ];
     return skipPatterns.some(p => p.test(filePath));
+}
+export function repoHitsToFindings(scan) {
+    if (scan.hits.length === 0) {
+        return [{
+                category: 'secrets',
+                id: 'repo.secrets',
+                title: 'No secrets in repository',
+                severity: 'info',
+                pass: true,
+                detail: `scanned ${scan.filesScanned} file(s), ${scan.commitsScanned} commit(s)`,
+            }];
+    }
+    return scan.hits.map((hit) => ({
+        category: 'secrets',
+        id: 'repo.secrets',
+        title: `${hit.name} in ${hit.file}`,
+        severity: hit.severity,
+        pass: false,
+        detail: `${hit.file}${hit.commit ? ` @ ${hit.commit}` : ''}${hit.line ? `:${hit.line}` : ''} [${hit.ruleId}] ${hit.redactedValue}`,
+        fix: 'Rotate the secret, remove it from git history (git filter-repo or BFG), and stop committing .env / key files.',
+    }));
+}
+const DEFAULT_MAX_FILES = 2_000;
+const DEFAULT_MAX_COMMITS = 200;
+const DEFAULT_MAX_FILE_BYTES = 512_000;
+async function walkFiles(root, maxFiles) {
+    const out = [];
+    const stack = [root];
+    while (stack.length && out.length < maxFiles) {
+        const dir = stack.pop();
+        let entries;
+        try {
+            entries = await readdir(dir, { withFileTypes: true });
+        }
+        catch {
+            continue;
+        }
+        for (const entry of entries) {
+            if (out.length >= maxFiles)
+                break;
+            const full = join(dir, entry.name);
+            const rel = relative(root, full).split('\\').join('/');
+            if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist' || entry.name === 'build')
+                continue;
+            if (entry.isDirectory()) {
+                stack.push(full);
+                continue;
+            }
+            if (!entry.isFile() || shouldSkipFile(rel))
+                continue;
+            out.push(rel);
+        }
+    }
+    return out;
+}
+/**
+ * Scan a local working tree and (when `.git` exists) recent git history for secrets.
+ * Never prints full secret values — hits carry `redactedValue` only. No liveness calls.
+ */
+export async function scanRepo(repoPath, opts = {}) {
+    const maxFiles = opts.maxFiles ?? DEFAULT_MAX_FILES;
+    const maxCommits = opts.maxCommits ?? DEFAULT_MAX_COMMITS;
+    const maxFileBytes = opts.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
+    const hits = [];
+    const errors = [];
+    let filesScanned = 0;
+    let commitsScanned = 0;
+    const files = await walkFiles(repoPath, maxFiles);
+    for (const rel of files) {
+        try {
+            const full = join(repoPath, rel);
+            const st = await stat(full);
+            if (st.size > maxFileBytes)
+                continue;
+            const content = await readFile(full, 'utf8');
+            filesScanned++;
+            hits.push(...scanContent(content, rel));
+        }
+        catch {
+            // binary / unreadable
+        }
+    }
+    if (maxCommits > 0) {
+        try {
+            const { stdout: headCheck } = await execFileAsync('git', ['-C', repoPath, 'rev-parse', '--is-inside-work-tree'], { timeout: 5_000 });
+            if (headCheck.trim() === 'true') {
+                const { stdout: log } = await execFileAsync('git', ['-C', repoPath, 'log', '--all', `--max-count=${maxCommits}`, '--format=%H'], { timeout: 15_000, maxBuffer: 2_000_000 });
+                const commits = log.trim().split('\n').filter(Boolean);
+                for (const commit of commits) {
+                    commitsScanned++;
+                    let names = '';
+                    try {
+                        const shown = await execFileAsync('git', ['-C', repoPath, 'diff-tree', '--no-commit-id', '--name-only', '-r', commit], { timeout: 8_000, maxBuffer: 1_000_000 });
+                        names = shown.stdout;
+                    }
+                    catch {
+                        continue;
+                    }
+                    for (const file of names.trim().split('\n').filter(Boolean).slice(0, 50)) {
+                        if (shouldSkipFile(file))
+                            continue;
+                        try {
+                            const { stdout: content } = await execFileAsync('git', ['-C', repoPath, 'show', `${commit}:${file}`], { timeout: 8_000, maxBuffer: maxFileBytes });
+                            hits.push(...scanContent(content, file, commit.slice(0, 7)));
+                        }
+                        catch {
+                            // missing in that commit / binary
+                        }
+                    }
+                }
+            }
+        }
+        catch {
+            errors.push('git history unavailable');
+        }
+    }
+    const seen = new Set();
+    const deduped = [];
+    for (const hit of hits) {
+        const key = `${hit.ruleId}:${hit.file}:${hit.redactedValue}`;
+        if (seen.has(key))
+            continue;
+        seen.add(key);
+        deduped.push(hit);
+    }
+    return { hits: deduped, filesScanned, commitsScanned, errors };
 }

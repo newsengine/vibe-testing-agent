@@ -101,7 +101,7 @@ export function OwnershipVerifyPanel({
   const router = useRouter();
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
-  const [loading, setLoading] = useState<'dns' | 'email' | 'send' | null>(null);
+  const [loading, setLoading] = useState<'dns' | 'email' | 'file' | 'meta' | 'send' | null>(null);
   const [inboxVerified, setInboxVerified] = useState(emailVerified);
   const [devLink, setDevLink] = useState('');
   const [info, setInfo] = useState<OwnershipInfo | null>(null);
@@ -160,7 +160,13 @@ export function OwnershipVerifyPanel({
       setErr(data.error || 'Verification failed');
       return;
     }
-    setMsg(method === 'email' ? 'Verified via domain email!' : 'Verified via DNS!');
+    const messages: Record<'dns' | 'email' | 'file' | 'meta', string> = {
+      email: 'Verified via domain email!',
+      dns: 'Verified via DNS!',
+      file: 'Verified via well-known file!',
+      meta: 'Verified via homepage meta tag!',
+    };
+    setMsg(messages[method]);
     router.refresh();
   }
 

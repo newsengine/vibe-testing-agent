@@ -13,6 +13,9 @@ import { sendEmail } from './email';
 import { verifyDomainOwnership, verifyFileOwnership, verifyMetaOwnership, hostnameFromUrl } from './dns-verify';
 import { audit } from './audit';
 import type { User, Project } from './db/schema';
+import { parseVerifyMethod, parseVerifyRequest, OWNERSHIP_METHODS, type OwnershipMethod } from './verify-method';
+
+export { parseVerifyMethod, parseVerifyRequest, OWNERSHIP_METHODS, type OwnershipMethod };
 
 /** Consumer / free-mail hosts cannot prove ownership of an app domain via email alone. */
 const PUBLIC_EMAIL_DOMAINS = new Set(
@@ -72,8 +75,6 @@ export function emailMatchesProjectHost(email: string, hostname: string): boolea
 export function isEmailInboxVerified(user: User): boolean {
   return Boolean(user.emailVerifiedAt);
 }
-
-export type OwnershipMethod = 'dns' | 'email' | 'file' | 'meta';
 
 export function describeOwnershipOptions(user: User, project: Project) {
   const domain = emailLocalDomain(user.email);
@@ -321,7 +322,8 @@ export async function verifyProjectOwnership(
     return { project: updated, method: 'meta', detail: result.detail };
   }
 
-  throw new Error(`Unknown verification method: ${method}`);
+  const _exhaustive: never = method;
+  throw new Error(`Unknown verification method: ${String(_exhaustive)}`);
 }
 
 export { hostnameFromUrl };

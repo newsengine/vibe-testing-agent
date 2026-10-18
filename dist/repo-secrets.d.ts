@@ -1,4 +1,4 @@
-import type { Severity } from './types.js';
+import type { Finding, Severity } from './types.js';
 export interface RepoSecretRule {
     id: string;
     name: string;
@@ -37,3 +37,13 @@ export type LivenessResult = 'valid' | 'invalid' | 'unknown' | 'error';
 export declare function checkLiveness(ruleId: string, secretValue: string, timeoutMs?: number): Promise<LivenessResult>;
 export declare function isEnvFile(filePath: string): boolean;
 export declare function shouldSkipFile(filePath: string): boolean;
+export declare function repoHitsToFindings(scan: RepoScanResult): Finding[];
+/**
+ * Scan a local working tree and (when `.git` exists) recent git history for secrets.
+ * Never prints full secret values — hits carry `redactedValue` only. No liveness calls.
+ */
+export declare function scanRepo(repoPath: string, opts?: {
+    maxFiles?: number;
+    maxCommits?: number;
+    maxFileBytes?: number;
+}): Promise<RepoScanResult>;

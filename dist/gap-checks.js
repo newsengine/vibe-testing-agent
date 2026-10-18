@@ -300,7 +300,7 @@ export async function disclosurePiiInResponseCheck(ctx) {
     }
     return findings;
 }
-// ── Preview/staging deployments check (verified only) ────────────────────────────────────────────
+// ── Preview/staging deployments check (default, low-volume) ──────────────────────────────────────
 const PREVIEW_SUBDOMAINS = ['staging', 'stage', 'dev', 'development', 'preview', 'beta', 'test', 'qa', 'uat', 'demo', 'sandbox', 'canary'];
 const HOSTING_PATTERNS = [
     { suffix: '.pages.dev', provider: 'Cloudflare Pages' },
@@ -389,45 +389,88 @@ function getApexDomain(hostname) {
     return lastTwo;
 }
 export const GAP_CHECK_CONFIG = {
-    'auth.login-rate-limit': { requiresVerification: true },
-    'auth.reset-token-reuse': { requiresVerification: true },
-    'auth.session-invalidation': { requiresVerification: true },
-    'auth.email-plus-alias': { requiresVerification: true },
-    'authz.idor-sequential': { requiresVerification: true },
-    'api.webhook-unsigned': { requiresVerification: true },
-    'api.idempotency': { requiresVerification: true },
-    'api.key-revocation': { requiresVerification: true },
-    'agent.prompt-injection': { requiresVerification: true },
-    'agent.llm-data-leak': { requiresVerification: true },
-    'agent.llm-rate-limit': { requiresVerification: true },
-    'upload.content-type': { requiresVerification: true },
-    'db.firebase-rules': { requiresVerification: true },
-    'storage.public-bucket': { requiresVerification: true },
-    'exposure.preview-deployments': { requiresVerification: true },
-    'repo.secrets': { requiresVerification: true },
-    'dns.dkim': { requiresVerification: false },
-    'csrf.token': { requiresVerification: false },
-    'disclosure.pii-in-response': { requiresVerification: false },
+    'auth.login-rate-limit': { requiresVerification: true, category: 'security' },
+    'auth.reset-token-reuse': { requiresVerification: true, category: 'security' },
+    'auth.session-invalidation': { requiresVerification: true, category: 'security' },
+    'auth.email-plus-alias': { requiresVerification: true, category: 'security' },
+    'authz.idor-sequential': { requiresVerification: true, category: 'security' },
+    'api.webhook-unsigned': { requiresVerification: true, category: 'security' },
+    'api.idempotency': { requiresVerification: true, category: 'security' },
+    'api.key-revocation': { requiresVerification: true, category: 'security' },
+    'agent.prompt-injection': { requiresVerification: true, category: 'atlas' },
+    'agent.llm-data-leak': { requiresVerification: true, category: 'atlas' },
+    'agent.llm-rate-limit': { requiresVerification: true, category: 'atlas' },
+    'upload.content-type': { requiresVerification: true, category: 'security' },
+    'db.firebase-rules': { requiresVerification: true, category: 'security' },
+    'storage.public-bucket': { requiresVerification: true, category: 'security' },
+    'exposure.preview-deployments': { requiresVerification: false, category: 'exposure' },
+    'repo.secrets': { requiresVerification: true, category: 'secrets' },
+    'dns.dkim': { requiresVerification: false, category: 'dns' },
+    'csrf.token': { requiresVerification: false, category: 'security' },
+    'disclosure.pii-in-response': { requiresVerification: false, category: 'security' },
 };
+export const DEFAULT_GAP_CHECK_IDS = Object.entries(GAP_CHECK_CONFIG)
+    .filter(([, cfg]) => !cfg.requiresVerification)
+    .map(([id]) => id);
 export function isPassiveCheck(checkId) {
     return GAP_CHECK_CONFIG[checkId]?.requiresVerification === false;
 }
 /**
- * Run all gap analysis checks. For unverified projects, only passive checks run.
+ * Whether a gap check should run given CLI `--only`/`--skip`, verification, and `--repo`.
  */
-export async function gapChecks(ctx, verified) {
+export function shouldRunGapCheck(checkId, opts = {}) {
+    const cfg = GAP_CHECK_CONFIG[checkId];
+    if (!cfg)
+        return false;
+    if (opts.only && opts.only.length > 0 && !opts.only.includes(cfg.category))
+        return false;
+    if (opts.skip?.includes(cfg.category))
+        return false;
+    if (cfg.requiresVerification && !(opts.authorizedGap || opts.verified))
+        return false;
+    if (checkId === 'repo.secrets' && !opts.repoPath)
+        return false;
+    return true;
+}
+const GAP_RUNNERS = {
+    'dns.dkim': dnsDkimCheck,
+    'csrf.token': csrfTokenCheck,
+    'disclosure.pii-in-response': disclosurePiiInResponseCheck,
+    'exposure.preview-deployments': exposurePreviewDeploymentsCheck,
+    'auth.login-rate-limit': authLoginRateLimitCheck,
+    'auth.reset-token-reuse': authResetTokenReuseCheck,
+    'auth.session-invalidation': authSessionInvalidationCheck,
+    'auth.email-plus-alias': authEmailPlusAliasCheck,
+    'authz.idor-sequential': authzIdorSequentialCheck,
+    'api.webhook-unsigned': apiWebhookUnsignedCheck,
+    'api.idempotency': apiIdempotencyCheck,
+    'api.key-revocation': apiKeyRevocationCheck,
+    'agent.prompt-injection': agentPromptInjectionCheck,
+    'agent.llm-data-leak': agentLlmDataLeakCheck,
+    'agent.llm-rate-limit': agentLlmRateLimitCheck,
+    'upload.content-type': uploadContentTypeCheck,
+    'db.firebase-rules': dbFirebaseRulesCheck,
+};
+/**
+ * Run gap analysis checks selected by `shouldRunGapCheck`. `repo.secrets` is handled by the caller
+ * (needs a filesystem), not here.
+ */
+export async function gapChecks(ctx, verifiedOrOpts = false) {
+    const opts = typeof verifiedOrOpts === 'boolean'
+        ? { verified: verifiedOrOpts, authorizedGap: verifiedOrOpts }
+        : verifiedOrOpts;
+    const merged = {
+        authorizedGap: opts.authorizedGap || ctx.opts.authorizedGap,
+        verified: opts.verified || ctx.opts.verified,
+        repoPath: opts.repoPath ?? ctx.opts.repoPath,
+        only: opts.only ?? ctx.opts.only,
+        skip: opts.skip ?? ctx.opts.skip,
+    };
     const results = [];
-    // Passive checks - always run
-    results.push(...await dnsDkimCheck(ctx));
-    results.push(...await csrfTokenCheck(ctx));
-    results.push(...await disclosurePiiInResponseCheck(ctx));
-    // Active checks - require verification
-    if (verified) {
-        results.push(...await authLoginRateLimitCheck(ctx));
-        results.push(...await authzIdorSequentialCheck(ctx));
-        results.push(...await apiWebhookUnsignedCheck(ctx));
-        results.push(...await dbFirebaseRulesCheck(ctx));
-        results.push(...await exposurePreviewDeploymentsCheck(ctx));
+    for (const [id, runner] of Object.entries(GAP_RUNNERS)) {
+        if (!shouldRunGapCheck(id, merged))
+            continue;
+        results.push(...await runner(ctx));
     }
     return results;
 }

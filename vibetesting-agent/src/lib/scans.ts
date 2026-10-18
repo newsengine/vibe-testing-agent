@@ -104,9 +104,11 @@ export async function processScan(scanId: string): Promise<void> {
   try {
     let baselineIds: string[] | null = null;
     let extraHeaders: Record<string, string> | undefined;
+    let verified = false;
     if (scan.projectId) {
       const prows = await db.select().from(schema.projects).where(eq(schema.projects.id, scan.projectId)).limit(1);
       const project = prows[0];
+      verified = project?.verified === true;
       if (project?.baselineJson) {
         try {
           baselineIds = JSON.parse(project.baselineJson) as string[];
@@ -124,6 +126,7 @@ export async function processScan(scanId: string): Promise<void> {
       mode: scan.mode as ScanMode,
       baselineIds,
       extraHeaders,
+      verified,
     });
 
     await finalizeScanSuccess(scan, result);

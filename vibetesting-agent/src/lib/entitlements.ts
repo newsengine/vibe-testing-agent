@@ -158,6 +158,7 @@ export const PASSIVE_GAP_CHECKS = new Set([
   'dns.dkim',
   'csrf.token',
   'disclosure.pii-in-response',
+  'exposure.preview-deployments',
 ]);
 
 export const VERIFIED_GAP_CHECKS = new Set([
@@ -175,7 +176,6 @@ export const VERIFIED_GAP_CHECKS = new Set([
   'upload.content-type',
   'db.firebase-rules',
   'storage.public-bucket',
-  'exposure.preview-deployments',
   'repo.secrets',
 ]);
 
