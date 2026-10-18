@@ -15,8 +15,10 @@ export type WebhookTargetResult =
   | { ok: true; url: string; hostname: string }
   | { ok: false; error: string; code: WebhookTargetCode };
 
+/** Fail closed: unset NODE_ENV (Cloudflare Workers) is not treated as dev. */
 function isDevOrTest(): boolean {
-  return process.env.NODE_ENV !== 'production';
+  const env = process.env.VTA_ENV || process.env.NODE_ENV;
+  return env === 'development' || env === 'test';
 }
 
 function hasScheme(raw: string): boolean {

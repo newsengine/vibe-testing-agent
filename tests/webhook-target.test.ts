@@ -55,30 +55,56 @@ test('resolveWebhookTarget: reject non-default ports', () => {
   if (!result.ok) assert.equal(result.code, 'port');
 });
 
-test('resolveWebhookTarget: reject http except localhost in dev/test', () => {
-  const remote = resolveWebhookTarget(project, 'http://app.example.com');
-  assert.equal(remote.ok, false);
-  if (!remote.ok) assert.equal(remote.code, 'insecure_url');
-
-  const localProject = { url: 'http://localhost/' };
-  const local = resolveWebhookTarget(localProject, 'http://localhost/preview');
-  assert.equal(local.ok, process.env.NODE_ENV !== 'production');
-  if (process.env.NODE_ENV !== 'production') {
-    assert.equal(local.ok, true);
+function withEnv(vars: { NODE_ENV?: string | undefined; VTA_ENV?: string | undefined }, fn: () => void) {
+  const prevNode = process.env.NODE_ENV;
+  const prevVta = process.env.VTA_ENV;
+  const restore = (key: 'NODE_ENV' | 'VTA_ENV', prev: string | undefined) => {
+    if (prev === undefined) delete process.env[key];
+    else process.env[key] = prev;
+  };
+  try {
+    if (vars.NODE_ENV === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = vars.NODE_ENV;
+    if (vars.VTA_ENV === undefined) delete process.env.VTA_ENV;
+    else process.env.VTA_ENV = vars.VTA_ENV;
+    fn();
+  } finally {
+    restore('NODE_ENV', prevNode);
+    restore('VTA_ENV', prevVta);
   }
+}
+
+test('resolveWebhookTarget: reject remote http even in test', () => {
+  withEnv({ NODE_ENV: 'test', VTA_ENV: undefined }, () => {
+    const remote = resolveWebhookTarget(project, 'http://app.example.com');
+    assert.equal(remote.ok, false);
+    if (!remote.ok) assert.equal(remote.code, 'insecure_url');
+  });
 });
 
-test('resolveWebhookTarget: reject http localhost in production', () => {
-  const prev = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'production';
-  try {
+test('resolveWebhookTarget: unset NODE_ENV rejects http localhost', () => {
+  withEnv({ NODE_ENV: undefined, VTA_ENV: undefined }, () => {
+    const result = resolveWebhookTarget({ url: 'http://localhost/' }, 'http://localhost/preview');
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, 'insecure_url');
+  });
+});
+
+test('resolveWebhookTarget: allow http localhost only when env is development or test', () => {
+  const localProject = { url: 'http://localhost/' };
+  withEnv({ NODE_ENV: 'test', VTA_ENV: undefined }, () => {
+    const local = resolveWebhookTarget(localProject, 'http://localhost/preview');
+    assert.equal(local.ok, true);
+  });
+  withEnv({ NODE_ENV: undefined, VTA_ENV: 'development' }, () => {
+    const local = resolveWebhookTarget(localProject, 'http://localhost/preview');
+    assert.equal(local.ok, true);
+  });
+  withEnv({ NODE_ENV: 'production', VTA_ENV: undefined }, () => {
     const result = resolveWebhookTarget({ url: 'https://localhost/' }, 'http://localhost/');
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.code, 'insecure_url');
-  } finally {
-    if (prev === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = prev;
-  }
+  });
 });
 
 test('resolveWebhookTarget: invalid URL', () => {

@@ -18,3 +18,8 @@ jobs:
       # (tests/lint.test.ts), so lint regressions fail CI like any other test.
       - run: npm ci || npm install
       - run: npm test
+      - name: Hosted app webhook route tests
+        working-directory: vibetesting-agent
+        run: |
+          npm ci || npm install
+          npm test
