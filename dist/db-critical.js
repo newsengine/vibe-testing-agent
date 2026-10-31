@@ -9,7 +9,8 @@
 //   VTA_EDITOR_EMAIL / VTA_EDITOR_PASSWORD
 //   VTA_SUPERADMIN_EMAIL / VTA_SUPERADMIN_PASSWORD
 //   VTA_USER_EMAIL / VTA_USER_PASSWORD          (optional; non-staff for profiles RLS)
-//   VTA_TOTP_SECRET                            (optional; MFA for staff login)
+//   VTA_TOTP_SECRET                            (optional; TOTP seed for staff AAL2 step-up)
+//   VTA_<USER|EDITOR|SUPERADMIN>_TOTP_SECRET   (optional; per-role seed, overrides VTA_TOTP_SECRET)
 //   VTA_SUPABASE_URL / VTA_SUPABASE_ANON_KEY   (anon/publishable key REQUIRED — legacy JWT anon disabled)
 //   VTA_UNPUBLISHED_ARTICLE_URL                (editorial golden-path fixture)
 //   VTA_STRIPE_AMOUNT_PROBE=1                  (opt-in; otherwise SKIP)
@@ -242,8 +243,58 @@ export function buildSupabaseSsrCookieHeader(session, supabaseUrl) {
         .map(({ name, value }) => `${name}=${value}`)
         .join('; ');
 }
+function rolePrefix(role) {
+    return role === 'user' ? 'VTA_USER' : role === 'editor' ? 'VTA_EDITOR' : 'VTA_SUPERADMIN';
+}
+/** Per-role TOTP seed (VTA_<ROLE>_TOTP_SECRET), falling back to VTA_TOTP_SECRET. Never logged. */
+function roleTotpSecret(role) {
+    return env(`${rolePrefix(role)}_TOTP_SECRET`) || env('VTA_TOTP_SECRET') || undefined;
+}
+/** The user's verified TOTP factor id from a GoTrue token response, if any. */
+export function verifiedTotpFactor(user) {
+    const factors = Array.isArray(user?.factors) ? user.factors : [];
+    const f = factors.find((x) => x?.status === 'verified' && (x?.factor_type ?? 'totp') === 'totp');
+    return f?.id ? String(f.id) : null;
+}
 /**
- * Password-grant a session (Bearer + SSR cookie). Handles optional TOTP when VTA_TOTP_SECRET is set.
+ * Supabase MFA challenge + verify (POST /auth/v1/factors/{id}/challenge then
+ * /verify). Returns the aal2 session. Retries once with a fresh challenge in
+ * case the code crossed a 30s step. Neither the seed nor any code is logged or
+ * returned in an error message.
+ */
+export async function stepUpToAal2(url, anonKey, accessToken, factorId, secret) {
+    const headers = { apikey: anonKey, authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' };
+    let lastStatus = 0;
+    let lastMsg = '';
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const ch = await fetch(`${url}/auth/v1/factors/${encodeURIComponent(factorId)}/challenge`, {
+            method: 'POST',
+            headers,
+            body: '{}',
+        });
+        const chJson = await ch.json().catch(() => ({}));
+        if (!ch.ok || !chJson?.id) {
+            return { error: `challenge ${ch.status} ${String(chJson?.error_code || chJson?.msg || '')}`.trim() };
+        }
+        const vr = await fetch(`${url}/auth/v1/factors/${encodeURIComponent(factorId)}/verify`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ challenge_id: chJson.id, code: totpCode(secret) }),
+        });
+        const vrJson = await vr.json().catch(() => ({}));
+        if (vr.ok && vrJson?.access_token && vrJson?.refresh_token)
+            return { session: vrJson };
+        lastStatus = vr.status;
+        lastMsg = String(vrJson?.error_code || vrJson?.msg || '');
+        if (vr.status !== 422 && vr.status !== 400)
+            break;
+        await new Promise((r) => setTimeout(r, 1500));
+    }
+    return { error: `verify ${lastStatus} ${lastMsg}`.trim() };
+}
+/**
+ * Password-grant a session (Bearer + SSR cookie). Accounts with a verified TOTP factor are stepped
+ * up to AAL2 via Supabase MFA challenge + verify (VTA_<ROLE>_TOTP_SECRET, else VTA_TOTP_SECRET).
  * HTML dashboard routes need the cookie (middleware getUser); API routes keep working with Bearer.
  */
 export async function obtainSession(role) {
@@ -263,30 +314,32 @@ export async function obtainSession(role) {
         };
     }
     const body = { email: creds.email, password: creds.password };
-    const totp = env('VTA_TOTP_SECRET');
-    let res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+    const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: { apikey: anonKey, 'content-type': 'application/json' },
         body: JSON.stringify(body),
     });
     let json = await res.json().catch(() => ({}));
-    if (!res.ok && totp && /mfa|factor|totp|aalatm/i.test(JSON.stringify(json))) {
-        res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-            method: 'POST',
-            headers: { apikey: anonKey, 'content-type': 'application/json' },
-            body: JSON.stringify({ ...body, gotrue_meta_security: { captcha_token: '' }, code: totpCode(totp) }),
-        });
-        json = await res.json().catch(() => ({}));
-    }
     if (!res.ok || !json?.access_token || !json?.refresh_token) {
         const msg = String(json?.error_description || json?.msg || json?.error || res.status);
-        if (/mfa|factor|totp/i.test(msg) && !totp) {
-            return { skipReason: `MFA required for ${role} but VTA_TOTP_SECRET not set` };
-        }
         const legacyHint = legacyAnon
             ? ' (anon key looks like disabled legacy JWT — set VTA_SUPABASE_ANON_KEY to the publishable key)'
             : '';
         return { error: `auth failed for ${role}: ${msg}${legacyHint}`.slice(0, 240) };
+    }
+    // Staff MFA is enforced server-side (AAL2). An account with a verified TOTP
+    // factor must complete challenge + verify; the verified session replaces the
+    // password-only (aal1) one for both the Bearer token and the SSR cookie.
+    const factor = verifiedTotpFactor(json.user);
+    if (factor) {
+        const secret = roleTotpSecret(role);
+        if (!secret) {
+            return { skipReason: `MFA required for ${role} but ${rolePrefix(role)}_TOTP_SECRET / VTA_TOTP_SECRET not set` };
+        }
+        const stepped = await stepUpToAal2(url, anonKey, json.access_token, factor, secret);
+        if ('error' in stepped)
+            return { error: `MFA step-up failed for ${role}: ${stepped.error}`.slice(0, 240) };
+        json = stepped.session;
     }
     const cookieHeader = buildSupabaseSsrCookieHeader({
         access_token: json.access_token,

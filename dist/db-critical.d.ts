@@ -39,6 +39,19 @@ export declare function buildSupabaseSsrCookieHeader(session: {
     token_type?: string;
     user?: unknown;
 }, supabaseUrl: string): string;
+/** The user's verified TOTP factor id from a GoTrue token response, if any. */
+export declare function verifiedTotpFactor(user: any): string | null;
+/**
+ * Supabase MFA challenge + verify (POST /auth/v1/factors/{id}/challenge then
+ * /verify). Returns the aal2 session. Retries once with a fresh challenge in
+ * case the code crossed a 30s step. Neither the seed nor any code is logged or
+ * returned in an error message.
+ */
+export declare function stepUpToAal2(url: string, anonKey: string, accessToken: string, factorId: string, secret: string): Promise<{
+    session: any;
+} | {
+    error: string;
+}>;
 export type ObtainSessionResult = {
     token: string;
     cookieHeader: string;
@@ -56,7 +69,8 @@ export type ObtainSessionResult = {
     error: string;
 };
 /**
- * Password-grant a session (Bearer + SSR cookie). Handles optional TOTP when VTA_TOTP_SECRET is set.
+ * Password-grant a session (Bearer + SSR cookie). Accounts with a verified TOTP factor are stepped
+ * up to AAL2 via Supabase MFA challenge + verify (VTA_<ROLE>_TOTP_SECRET, else VTA_TOTP_SECRET).
  * HTML dashboard routes need the cookie (middleware getUser); API routes keep working with Bearer.
  */
 export declare function obtainSession(role: DbCriticalRole): Promise<ObtainSessionResult>;
