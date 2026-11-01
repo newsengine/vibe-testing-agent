@@ -5,6 +5,11 @@ export {
 } from './probe.js';
 export { loadConfig, type FileConfig } from './config.js';
 export {
+  evaluateFlaky, applyQuarantine, recordScanOutcomes, loadQuarantineFile, saveQuarantineFile,
+  emptyQuarantineFile, FLAKY_WINDOW_SCANS,
+  type QuarantineFile, type CheckOutcome,
+} from './quarantine.js';
+export {
   applyProfile, parseProfile, SMOKE_CATEGORIES, SMOKE_PATHS, smokeCheckIds,
   type ScanProfile,
 } from './profile.js';

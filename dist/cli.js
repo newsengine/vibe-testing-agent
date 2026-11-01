@@ -42,6 +42,7 @@ import { dirname } from 'node:path';
 import { probe, summarize, normalizeUrl, discoverPages, ALL_CATEGORIES } from './probe.js';
 import { DEFAULT_RETRIES, gateableFindings } from './retry.js';
 import { parseProfile } from './profile.js';
+import { applyQuarantine, loadQuarantineFile, recordScanOutcomes, saveQuarantineFile } from './quarantine.js';
 import { runNpmAudit, failsAtLevel } from './audit.js';
 import { toSarif } from './sarif.js';
 import { buildBaseline, applyBaseline } from './baseline.js';
@@ -675,7 +676,7 @@ async function mainScan() {
         // only the homepage was found — fall through to the normal single-URL flow below
     }
     const startedAt = new Date().toISOString();
-    const findings = await probe(url, opts);
+    let findings = await probe(url, opts);
     // #43 — active injection engine (opt-in + authorized, non-destructive). Merged into findings so it flows
     // through the record/report/issue-feed like any other check.
     if (opts.authorizedActive) {
@@ -688,6 +689,16 @@ async function mainScan() {
         catch (e) {
             console.error(`active injection error: ${String(e?.message || e)}`);
         }
+    }
+    const quarantinePath = arg('--quarantine');
+    if (quarantinePath) {
+        let qfile = loadQuarantineFile(quarantinePath);
+        const fingerprint = arg('--sha') || process.env.GITHUB_SHA || process.env.VTA_DEPLOY_SHA || '';
+        qfile = recordScanOutcomes(qfile, findings, url, fingerprint);
+        saveQuarantineFile(quarantinePath, qfile);
+        findings = applyQuarantine(findings, qfile, url);
+        const n = qfile.entries.filter((e) => e.quarantinedAt).length;
+        console.error(`🧷 quarantine ${quarantinePath}: ${n} check(s) quarantined (reported, not gated)`);
     }
     const sum = summarize(findings);
     // Run record: every sub-test keyed by its VTA number — logged to the ledger database and used for the

@@ -43,6 +43,7 @@ import { dirname } from 'node:path';
 import { probe, summarize, normalizeUrl, discoverPages, ALL_CATEGORIES, type Category, type Finding, type Severity, type ScanOptions } from './probe.js';
 import { DEFAULT_RETRIES, gateableFindings } from './retry.js';
 import { parseProfile } from './profile.js';
+import { applyQuarantine, loadQuarantineFile, recordScanOutcomes, saveQuarantineFile } from './quarantine.js';
 import { runNpmAudit, failsAtLevel } from './audit.js';
 import { toSarif } from './sarif.js';
 import { buildBaseline, applyBaseline, type Baseline } from './baseline.js';
@@ -563,7 +564,7 @@ async function mainScan() {
   }
 
   const startedAt = new Date().toISOString();
-  const findings = await probe(url, opts);
+  let findings = await probe(url, opts);
 
   // #43 — active injection engine (opt-in + authorized, non-destructive). Merged into findings so it flows
   // through the record/report/issue-feed like any other check.
@@ -573,6 +574,17 @@ async function mainScan() {
     const ctx = { baseUrl: url, origin: new URL(url).origin, url: new URL(url), res: {} as Response, html: '', headers: new Headers(), opts } as unknown as import('./probe.js').ScanContext;
     try { findings.push(...await activeInjectionScan(ctx)); }
     catch (e) { console.error(`active injection error: ${String((e as Error)?.message || e)}`); }
+  }
+
+  const quarantinePath = arg('--quarantine');
+  if (quarantinePath) {
+    let qfile = loadQuarantineFile(quarantinePath);
+    const fingerprint = arg('--sha') || process.env.GITHUB_SHA || process.env.VTA_DEPLOY_SHA || '';
+    qfile = recordScanOutcomes(qfile, findings, url, fingerprint);
+    saveQuarantineFile(quarantinePath, qfile);
+    findings = applyQuarantine(findings, qfile, url);
+    const n = qfile.entries.filter((e) => e.quarantinedAt).length;
+    console.error(`🧷 quarantine ${quarantinePath}: ${n} check(s) quarantined (reported, not gated)`);
   }
   const sum = summarize(findings);
 

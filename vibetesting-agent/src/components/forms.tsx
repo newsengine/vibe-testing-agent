@@ -1543,3 +1543,86 @@ export function PreviewPatternsPanel({ projectId }: { projectId: string }) {
     </section>
   );
 }
+
+type QuarantineRow = {
+  id: string;
+  checkId: string;
+  target: string;
+  reason: string;
+  quarantinedAt: string | number | Date;
+};
+
+/** Active flaky-check quarantine with manual un-quarantine. */
+export function QuarantinePanel({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const [items, setItems] = useState<QuarantineRow[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  function load() {
+    fetch(`/api/v1/projects/${projectId}/quarantine`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.items)) setItems(d.items);
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  async function unquarantine(id: string) {
+    setLoading(true);
+    setError('');
+    const res = await fetch(`/api/v1/projects/${projectId}/quarantine`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error || 'Could not un-quarantine');
+      return;
+    }
+    setItems(data.items || []);
+    router.refresh();
+  }
+
+  return (
+    <section className="panel space-y-3 p-5">
+      <h2 className="mono font-bold">Flaky-check quarantine</h2>
+      <p className="text-sm text-[var(--mut)]">
+        A check is quarantined when it flips twice in the last 5 scans of the same target with no
+        deploy or config change. Quarantined checks still run and are labelled, but they do not gate
+        ship checks. Two consecutive high-severity failures are never auto-quarantined.
+      </p>
+      {items.length === 0 ? (
+        <p className="text-sm text-[var(--mut)]">No quarantined checks.</p>
+      ) : (
+        <ul className="space-y-2 text-sm">
+          {items.map((item) => (
+            <li key={item.id} className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="mono font-semibold">{item.checkId}</div>
+                <div className="text-xs text-[var(--mut)]">{item.target}</div>
+                <div className="text-xs text-[var(--mut)]">{item.reason}</div>
+              </div>
+              <button
+                type="button"
+                className="btn-ghost text-xs"
+                disabled={loading}
+                onClick={() => unquarantine(item.id)}
+              >
+                Un-quarantine
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="text-sm text-[var(--hi)]">{error}</p>}
+    </section>
+  );
+}

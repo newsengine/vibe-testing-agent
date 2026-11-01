@@ -1,5 +1,6 @@
 export { probe, scan, summarize, discoverPages, normalizeUrl, ALL_CATEGORIES, type Finding, type Severity, type Category, type ScanOptions, type ProbeOptions, type ScanContext, } from './probe.js';
 export { loadConfig, type FileConfig } from './config.js';
+export { evaluateFlaky, applyQuarantine, recordScanOutcomes, loadQuarantineFile, saveQuarantineFile, emptyQuarantineFile, FLAKY_WINDOW_SCANS, type QuarantineFile, type CheckOutcome, } from './quarantine.js';
 export { applyProfile, parseProfile, SMOKE_CATEGORIES, SMOKE_PATHS, smokeCheckIds, type ScanProfile, } from './profile.js';
 export { DEFAULT_RETRIES, isTransientStatus, isNonRetryableClientError, classifyTransientError, decideRetry, parseRetryAfter, backoffMs, withRetries, inconclusiveFinding, gateableFindings, type TransientKind, type RetryDecision, } from './retry.js';
 export { securityChecks, secretChecks, exposureChecks, reliabilityChecks, seoChecks, a11yChecks, performanceChecks, } from './checks.js';

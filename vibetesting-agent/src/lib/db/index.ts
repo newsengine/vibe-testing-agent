@@ -93,6 +93,16 @@ CREATE TABLE IF NOT EXISTS project_preview_patterns (
 CREATE UNIQUE INDEX IF NOT EXISTS preview_patterns_project_pattern_idx
   ON project_preview_patterns(project_id, pattern);
 CREATE INDEX IF NOT EXISTS preview_patterns_project_idx ON project_preview_patterns(project_id);
+CREATE TABLE IF NOT EXISTS check_history (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL, target TEXT NOT NULL, check_id TEXT NOT NULL,
+  pass INTEGER NOT NULL, severity TEXT, scan_id TEXT, deploy_fingerprint TEXT, created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS check_history_lookup_idx ON check_history(project_id, target, check_id, created_at);
+CREATE TABLE IF NOT EXISTS quarantined_checks (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL, target TEXT NOT NULL, check_id TEXT NOT NULL,
+  reason TEXT NOT NULL, quarantined_at INTEGER NOT NULL, unquarantined_at INTEGER, auto INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS quarantined_checks_project_idx ON quarantined_checks(project_id);
 `;
 
 async function getD1Binding(): Promise<unknown | null> {

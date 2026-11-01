@@ -276,6 +276,13 @@ Snapshot today's debt once, commit it, then fail CI only on *new* findings:
 ```bash
 npx github:newsengine/vibe-testing-agent https://your-deploy.example.com --write-baseline probe-baseline.json  # once, commit the file
 npx github:newsengine/vibe-testing-agent https://your-deploy.example.com --baseline probe-baseline.json --fail-on medium
+
+# Flaky-check quarantine (next to the baseline). Quarantined checks still run
+# and are labelled, but do not trip --fail-on. Auto-quarantine uses the last 5
+# results on the same target; two consecutive high-severity failures are never
+# auto-quarantined.
+npx github:newsengine/vibe-testing-agent https://your-deploy.example.com \
+  --baseline probe-baseline.json --quarantine .vta-quarantine.json --fail-on medium
 ```
 
 ## Use the CLI locally / ad-hoc
