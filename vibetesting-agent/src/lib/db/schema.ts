@@ -86,6 +86,20 @@ export const projects = sqliteTable('projects', {
   uniqueIndex('projects_user_hostname_idx').on(t.userId, t.hostname),
 ]);
 
+export const projectPreviewPatterns = sqliteTable('project_preview_patterns', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  pattern: text('pattern').notNull(),
+  proofHost: text('proof_host').notNull(),
+  verified: integer('verified', { mode: 'boolean' }).notNull().default(false),
+  verifyMethod: text('verify_method'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (t) => [
+  uniqueIndex('preview_patterns_project_pattern_idx').on(t.projectId, t.pattern),
+  index('preview_patterns_project_idx').on(t.projectId),
+]);
+
 export const scans = sqliteTable('scans', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -177,6 +191,7 @@ export const testResults = sqliteTable('test_results', {
 
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
+export type ProjectPreviewPattern = typeof projectPreviewPatterns.$inferSelect;
 export type Scan = typeof scans.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type TestRun = typeof testRuns.$inferSelect;

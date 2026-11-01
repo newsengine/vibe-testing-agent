@@ -6,6 +6,7 @@ import { planOf } from '@/lib/plans';
 import { config } from '@/lib/config';
 import { json, errorResponse } from '@/lib/http';
 import { resolveWebhookTarget, webhookHostMismatchSummary } from '@/lib/webhook-target';
+import { previewPatternStrings } from '@/lib/preview-hosts';
 
 export async function POST(req: Request) {
   try {
@@ -48,7 +49,8 @@ export async function POST(req: Request) {
           deploymentStatus.environment_url ||
           deploymentStatus.target_url ||
           deployment?.payload?.web_url;
-        const target = resolveWebhookTarget(project, candidate);
+        const previewPatterns = await previewPatternStrings(project.id);
+        const target = resolveWebhookTarget({ ...project, previewPatterns }, candidate);
         if (!target.ok) {
           // Reject — do not fall back to project.url (that would scan production
           // and report a false pass for an untested preview).

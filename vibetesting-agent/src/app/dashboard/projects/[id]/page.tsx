@@ -4,7 +4,7 @@ import { getSessionUser } from '@/lib/auth';
 import { getProject } from '@/lib/projects';
 import { config } from '@/lib/config';
 import { authPublicStatus } from '@/lib/project-auth';
-import { OwnershipVerifyPanel, RunScanForm, CopyButton, AuthAccessPanel } from '@/components/forms';
+import { OwnershipVerifyPanel, RunScanForm, CopyButton, AuthAccessPanel, PreviewPatternsPanel } from '@/components/forms';
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getSessionUser();
@@ -113,6 +113,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
         <AuthAccessPanel projectId={project.id} projectUrl={project.url} initial={auth} />
       </div>
+
+      {project.verified && <PreviewPatternsPanel projectId={project.id} />}
 
       <section className="panel space-y-3 p-5">
         <h2 className="mono font-bold">Deploy webhook (every software update)</h2>

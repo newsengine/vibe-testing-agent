@@ -1,6 +1,8 @@
 import { mock, test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
+const previewPatternsMock = mock.fn(async () => [] as string[]);
+
 const enqueueScanMock = mock.fn(async (input: { url: string; authorized: boolean }) => ({
   id: 'scn_test',
   status: 'completed',
@@ -43,6 +45,8 @@ function resetFixtures() {
   enqueueScanMock.mock.resetCalls();
   postCheckRunMock.mock.resetCalls();
   auditMock.mock.resetCalls();
+  previewPatternsMock.mock.resetCalls();
+  previewPatternsMock.mock.mockImplementation(async () => []);
   state.project = {
     id: 'prj_1',
     userId: 'usr_1',
@@ -114,6 +118,12 @@ mock.module('@/lib/scans', {
   namedExports: {
     enqueueScan: enqueueScanMock,
     parseFindings: () => [],
+  },
+});
+
+mock.module('@/lib/preview-hosts', {
+  namedExports: {
+    previewPatternStrings: previewPatternsMock,
   },
 });
 
@@ -289,6 +299,16 @@ test('github hook: matching host scans', async () => {
   const input = enqueueScanMock.mock.calls[0]?.arguments[0] as { authorized: boolean; url: string };
   assert.equal(input.authorized, true);
   assert.equal(new URL(input.url).hostname, 'app.example.com');
+});
+
+test('deploy hook: allowed preview pattern is scanned with parent authorization', async () => {
+  previewPatternsMock.mock.mockImplementation(async () => ['*.preview.example.com']);
+  const res = await deploy({ url: 'https://pr-9.preview.example.com' });
+  assert.equal(res.status, 200);
+  assert.equal(enqueueScanMock.mock.calls.length, 1);
+  const input = enqueueScanMock.mock.calls[0]?.arguments[0] as { url: string; authorized: boolean };
+  assert.equal(new URL(input.url).hostname, 'pr-9.preview.example.com');
+  assert.equal(input.authorized, true);
 });
 
 test('github hook: host mismatch without installation still records skip', async () => {

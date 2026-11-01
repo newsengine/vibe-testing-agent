@@ -1,8 +1,10 @@
 /**
- * Bind deploy / GitHub webhooks to the verified project's exact hostname.
+ * Bind deploy / GitHub webhooks to the verified project's exact hostname,
+ * or to an owner-declared preview pattern (see preview-patterns.ts).
  * Reject mismatches instead of falling back to project.url — a fallback would
  * quietly scan production and report a false pass for an untested preview.
  */
+import { hostMatchesAnyPreviewPattern } from './preview-patterns.ts';
 
 export type WebhookTargetCode =
   | 'host_mismatch'
@@ -46,7 +48,7 @@ function parseUrl(raw: string): URL | null {
 }
 
 export function resolveWebhookTarget(
-  project: { url: string },
+  project: { url: string; previewPatterns?: string[] | null },
   candidateUrl?: string | null,
 ): WebhookTargetResult {
   const projectUrl = parseUrl(typeof project.url === 'string' ? project.url.trim() : '');
@@ -86,6 +88,9 @@ export function resolveWebhookTarget(
   }
 
   if (hostname !== expectedHost) {
+    if (hostMatchesAnyPreviewPattern(hostname, project.previewPatterns)) {
+      return { ok: true, url: url.toString(), hostname };
+    }
     return {
       ok: false,
       error: `URL host ${hostname} does not match verified project host ${expectedHost}`,

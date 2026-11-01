@@ -85,6 +85,14 @@ CREATE TABLE IF NOT EXISTS test_results (
 CREATE INDEX IF NOT EXISTS test_results_run_idx ON test_results(run_id);
 CREATE INDEX IF NOT EXISTS test_results_check_idx ON test_results(check_id);
 CREATE INDEX IF NOT EXISTS test_results_vta_idx ON test_results(vta_number);
+CREATE TABLE IF NOT EXISTS project_preview_patterns (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL, pattern TEXT NOT NULL,
+  proof_host TEXT NOT NULL, verified INTEGER NOT NULL DEFAULT 0, verify_method TEXT,
+  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS preview_patterns_project_pattern_idx
+  ON project_preview_patterns(project_id, pattern);
+CREATE INDEX IF NOT EXISTS preview_patterns_project_idx ON project_preview_patterns(project_id);
 `;
 
 async function getD1Binding(): Promise<unknown | null> {

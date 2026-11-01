@@ -43,6 +43,25 @@ export default function DocsPage() {
           </ol>
         </section>
         <section>
+          <h2 className="mono text-lg font-bold text-[var(--ink)]">Preview / staging hosts</h2>
+          <p className="mt-2">
+            After the production host is verified, add allowed preview patterns on the project page
+            (for example <code className="text-[var(--ink)]">*.your-app.pages.dev</code> or{' '}
+            <code className="text-[var(--ink)]">staging.example.com</code>). A pattern is accepted only
+            if you have proven the parent domain or that specific preview host via DNS TXT,{' '}
+            <code className="text-[var(--ink)]">/.well-known/vibetesting-verify.txt</code>, or a homepage
+            meta tag. Shared platform apexes (<code className="text-[var(--ink)]">pages.dev</code>,{' '}
+            <code className="text-[var(--ink)]">vercel.app</code>,{' '}
+            <code className="text-[var(--ink)]">netlify.app</code>) cannot be added as bare patterns.
+            Deploy and GitHub webhooks then accept matching preview URLs; anything else is still{' '}
+            <code className="text-[var(--ink)]">host_mismatch</code>.
+          </p>
+          <p className="mt-2">
+            The CLI already scans any URL you pass — use it on preview deploys you own. The hosted app
+            is stricter so we never scan a host the owner has not proven.
+          </p>
+        </section>
+        <section>
           <h2 className="mono text-lg font-bold text-[var(--ink)]">Authenticated / internal testing</h2>
           <p className="mt-2">
             Optional. After ownership, open the project and enable{' '}

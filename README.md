@@ -252,8 +252,12 @@ npx github:newsengine/vibe-testing-agent https://your-deploy.example.com --basel
 
 ## Use the CLI locally / ad-hoc
 ```bash
-# full scan (all 13 categories)
+# full scan (all 13 categories) — any URL you own, including preview/staging
 npx github:newsengine/vibe-testing-agent https://app.example.com
+npx github:newsengine/vibe-testing-agent https://pr-12.your-app.pages.dev
+
+# The hosted app only accepts preview hosts that match a pattern the owner verified.
+# The CLI has no such restriction: you are responsible for scanning only hosts you control.
 
 # scope it, gate harder, test CORS, machine-readable output
 npx github:newsengine/vibe-testing-agent https://app.example.com \

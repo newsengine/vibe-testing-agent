@@ -7,6 +7,7 @@ import { json, errorResponse, clientIp } from '@/lib/http';
 import { rateLimit } from '@/lib/rate-limit';
 import { audit } from '@/lib/audit';
 import { resolveWebhookTarget } from '@/lib/webhook-target';
+import { previewPatternStrings } from '@/lib/preview-hosts';
 
 /**
  * Generic deploy webhook — call after every software update:
@@ -58,7 +59,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ secret: string
       (body?.payload as { deployment?: { url?: string } } | undefined)?.deployment?.url ||
       (body?.url as string | undefined);
     const candidate = typeof vercelUrl === 'string' ? vercelUrl : undefined;
-    const target = resolveWebhookTarget(project, candidate);
+    const previewPatterns = await previewPatternStrings(project.id);
+    const target = resolveWebhookTarget({ ...project, previewPatterns }, candidate);
     if (!target.ok) {
       // Reject — do not fall back to project.url (that would scan production
       // and report a false pass for an untested preview).

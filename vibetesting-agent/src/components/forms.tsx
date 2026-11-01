@@ -1416,3 +1416,129 @@ export function LiteScanBox() {
     </div>
   );
 }
+
+type PreviewPatternRow = {
+  id: string;
+  pattern: string;
+  proofHost: string;
+  verified: boolean;
+  verifyMethod: string | null;
+};
+
+/** Manage allowed preview / staging host patterns for webhook scans. */
+export function PreviewPatternsPanel({ projectId }: { projectId: string }) {
+  const router = useRouter();
+  const [patterns, setPatterns] = useState<PreviewPatternRow[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  function load() {
+    fetch(`/api/v1/projects/${projectId}/preview-patterns`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.patterns)) setPatterns(d.patterns);
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    const fd = new FormData(e.currentTarget);
+    const res = await fetch(`/api/v1/projects/${projectId}/preview-patterns`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        pattern: fd.get('pattern'),
+        method: fd.get('method') || 'dns',
+      }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error || 'Could not add pattern');
+      return;
+    }
+    setPatterns(data.patterns || []);
+    (e.target as HTMLFormElement).reset();
+    router.refresh();
+  }
+
+  async function remove(id: string) {
+    setLoading(true);
+    setError('');
+    const res = await fetch(`/api/v1/projects/${projectId}/preview-patterns`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error || 'Could not remove pattern');
+      return;
+    }
+    setPatterns(data.patterns || []);
+    router.refresh();
+  }
+
+  return (
+    <section className="panel space-y-3 p-5">
+      <h2 className="mono font-bold">Preview / staging hosts</h2>
+      <p className="text-sm text-[var(--mut)]">
+        Webhook scans accept these hosts in addition to the verified production host. A pattern is
+        allowed only after you prove the parent domain or the specific preview host (DNS TXT,{' '}
+        <code className="mono">/.well-known/vibetesting-verify.txt</code>, or a homepage meta tag).
+        Bare platform apexes like <code className="mono">pages.dev</code>,{' '}
+        <code className="mono">vercel.app</code>, and <code className="mono">netlify.app</code> are
+        rejected.
+      </p>
+      {patterns.length > 0 && (
+        <ul className="space-y-2 text-sm">
+          {patterns.map((p) => (
+            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2">
+              <span className="mono">
+                {p.pattern}
+                <span className="ml-2 text-[10px] uppercase text-[var(--mut)]">
+                  via {p.verifyMethod || 'parent'}
+                </span>
+              </span>
+              <button type="button" className="btn-ghost text-xs" onClick={() => remove(p.id)} disabled={loading}>
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[16rem] flex-1">
+          <label className="label">Pattern</label>
+          <input
+            name="pattern"
+            className="input"
+            placeholder="*.preview.example.com"
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Prove host</label>
+          <select name="method" className="input" defaultValue="dns">
+            <option value="dns">DNS TXT</option>
+            <option value="file">File</option>
+            <option value="meta">Meta tag</option>
+          </select>
+        </div>
+        <button className="btn-primary" disabled={loading}>
+          {loading ? 'Saving…' : 'Add pattern'}
+        </button>
+      </form>
+      {error && <p className="text-sm text-[var(--hi)]">{error}</p>}
+    </section>
+  );
+}
