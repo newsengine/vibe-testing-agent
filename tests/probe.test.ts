@@ -442,11 +442,14 @@ test('normalizeUrl adds https:// to a bare domain and leaves full URLs alone', (
 test('probe returns (does not hang) against a non-responsive server within the timeout', async () => {
   const hanging = await server(() => { /* never write a response */ });
   const start = Date.now();
-  const findings = await probe(hanging.url, { only: ['security'], timeoutMs: 400 });
+  const findings = await probe(hanging.url, { only: ['security'], timeoutMs: 400, retries: 0 });
   const elapsed = Date.now() - start;
   hanging.close();
   assert.ok(elapsed < 8000, `scan should abort quickly, took ${elapsed}ms`);
-  assert.ok(findings.find((f) => f.id === 'reachability' && !f.pass), 'reports the site as unreachable');
+  const reach = findings.find((f) => f.id === 'reachability');
+  assert.ok(reach, 'reports reachability');
+  assert.equal(reach?.inconclusive, true, 'unreachable after retries is error/inconclusive, not a finding');
+  assert.equal(reach?.pass, true);
 });
 
 // ═══════════════════════ agent-readiness category (#11) ═════════════════════
