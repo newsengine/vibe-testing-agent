@@ -10,6 +10,15 @@ export interface Finding {
     detail: string;
     /** Optional one-line "how to fix" aimed at a non-expert. */
     fix?: string;
+    /** How many transient retries this check needed (0 = first attempt succeeded). */
+    retries?: number;
+    /**
+     * Transient error after retries (timeout / DNS / 502…). Not a security finding
+     * and must not trip `--fail-on`.
+     */
+    inconclusive?: boolean;
+    /** Flaky-check quarantine: still reported, does not gate. */
+    quarantined?: boolean;
 }
 export interface ScanOptions {
     /** Path expected to hold security.txt (default /.well-known/security.txt). */
@@ -28,6 +37,15 @@ export interface ScanOptions {
     maxCrawl?: number;
     /** Per-request network timeout in ms (default 10000). Guards against sites that never respond. */
     timeoutMs?: number;
+    /**
+     * Extra attempts after a transient failure (network reset, timeout, DNS, 429/502/503/504).
+     * Default 2. `0` disables retries. Never retries a real finding or a 4xx other than 429.
+     */
+    retries?: number;
+    /** Scan profile: `smoke` is a fast passive subset; `full` is the default suite. */
+    profile?: 'smoke' | 'full';
+    /** Extra same-origin paths a smoke scan should GET (defaults in src/profile.ts). */
+    smokePaths?: string[];
     /** Directory of user JSON plugin templates for the `plugins` category (default ./vibetesting-agent-plugins). */
     pluginsDir?: string;
     /** Extra headers (e.g. Cookie / Authorization) sent ONLY on same-origin requests, so the scan can

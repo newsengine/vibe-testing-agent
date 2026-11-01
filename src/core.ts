@@ -4,6 +4,13 @@
 // deploy in one command. Regex HTML parsing is "good enough" for black-box posture checks.
 
 import tls from 'node:tls';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import {
+  DEFAULT_RETRIES,
+  decideRetry,
+  withRetries,
+  type TransientKind,
+} from './retry.js';
 
 export interface TlsInfo {
   /** Days until the served certificate expires (null if undeterminable). */
@@ -68,6 +75,37 @@ export function gradeTlsCipher(cipher: string | null): { ok: boolean; detail: st
 // Every network call gets a hard deadline so a dead/slow/hostile site can't hang the scan forever.
 export const DEFAULT_TIMEOUT_MS = 10_000;
 
+/** Per-scan retry budget. `probe()` installs this so every safeFetch honours `--retries`. */
+const retryBudget = new AsyncLocalStorage<number>();
+
+export function runWithRetryBudget<T>(retries: number, fn: () => Promise<T>): Promise<T> {
+  return retryBudget.run(Math.max(0, Math.floor(retries)), fn);
+}
+
+export function currentRetryBudget(): number {
+  const stored = retryBudget.getStore();
+  return stored === undefined ? DEFAULT_RETRIES : stored;
+}
+
+export interface FetchRetryMeta {
+  retries: number;
+  exhausted: boolean;
+  lastKind?: TransientKind;
+}
+
+export interface FetchResult {
+  response: Response | null;
+  retries: number;
+  exhausted: boolean;
+  lastKind?: TransientKind;
+  error?: unknown;
+}
+
+export interface SafeFetchOptions {
+  /** Override the scan retry budget. `0` disables retries (rate-limit bursts, attack probes). */
+  retries?: number;
+}
+
 /** fetch() with an AbortController timeout. Merges any caller-supplied signal-less init. */
 async function fetchWithTimeout(url: string, init: RequestInit | undefined, timeoutMs: number): Promise<Response> {
   const ac = new AbortController();
@@ -80,16 +118,48 @@ async function fetchWithTimeout(url: string, init: RequestInit | undefined, time
   }
 }
 
+function retryCount(opts?: SafeFetchOptions): number {
+  return opts?.retries !== undefined ? Math.max(0, Math.floor(opts.retries)) : currentRetryBudget();
+}
+
+/**
+ * Fetch with bounded backoff on network reset / timeout / DNS / 429/502/503/504.
+ * Honour Retry-After within the cap. Never retries other 4xx or a successful response.
+ */
+export async function fetchWithRetry(
+  url: string,
+  init: RequestInit | undefined,
+  timeoutMs: number,
+  retries: number,
+): Promise<FetchResult> {
+  const result = await withRetries(
+    async () => fetchWithTimeout(url, init, timeoutMs),
+    {
+      retries,
+      isRetryable: (res) =>
+        decideRetry({
+          status: res.status,
+          retryAfter: res.headers.get('retry-after'),
+        }),
+    },
+  );
+  return {
+    response: result.value ?? null,
+    retries: result.retries,
+    exhausted: result.exhausted,
+    lastKind: result.lastKind,
+    error: result.error,
+  };
+}
+
 export async function safeFetch(
   url: string,
   init?: RequestInit,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  retryOpts?: SafeFetchOptions,
 ): Promise<Response | null> {
-  try {
-    return await fetchWithTimeout(url, { redirect: 'manual', ...init }, timeoutMs);
-  } catch {
-    return null;
-  }
+  const result = await fetchWithRetry(url, { redirect: 'manual', ...init }, timeoutMs, retryCount(retryOpts));
+  return result.response;
 }
 
 /**
@@ -102,10 +172,12 @@ export async function fetchText(
   init?: RequestInit,
   maxBytes = 3_000_000,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  retryOpts?: SafeFetchOptions,
 ): Promise<string> {
   try {
-    const res = await fetchWithTimeout(url, { redirect: 'follow', ...init }, timeoutMs);
-    if (!res.ok || !res.body) return '';
+    const attempt = await fetchWithRetry(url, { redirect: 'follow', ...init }, timeoutMs, retryCount(retryOpts));
+    const res = attempt.response;
+    if (!res || !res.ok || !res.body) return '';
     const reader = res.body.getReader();
     const decoder = new TextDecoder('utf-8', { fatal: false });
     let out = '';

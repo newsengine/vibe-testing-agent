@@ -1,3 +1,4 @@
+import { type TransientKind } from './retry.js';
 export interface TlsInfo {
     /** Days until the served certificate expires (null if undeterminable). */
     daysRemaining: number | null;
@@ -25,13 +26,36 @@ export declare function gradeTlsCipher(cipher: string | null): {
     detail: string;
 };
 export declare const DEFAULT_TIMEOUT_MS = 10000;
-export declare function safeFetch(url: string, init?: RequestInit, timeoutMs?: number): Promise<Response | null>;
+export declare function runWithRetryBudget<T>(retries: number, fn: () => Promise<T>): Promise<T>;
+export declare function currentRetryBudget(): number;
+export interface FetchRetryMeta {
+    retries: number;
+    exhausted: boolean;
+    lastKind?: TransientKind;
+}
+export interface FetchResult {
+    response: Response | null;
+    retries: number;
+    exhausted: boolean;
+    lastKind?: TransientKind;
+    error?: unknown;
+}
+export interface SafeFetchOptions {
+    /** Override the scan retry budget. `0` disables retries (rate-limit bursts, attack probes). */
+    retries?: number;
+}
+/**
+ * Fetch with bounded backoff on network reset / timeout / DNS / 429/502/503/504.
+ * Honour Retry-After within the cap. Never retries other 4xx or a successful response.
+ */
+export declare function fetchWithRetry(url: string, init: RequestInit | undefined, timeoutMs: number, retries: number): Promise<FetchResult>;
+export declare function safeFetch(url: string, init?: RequestInit, timeoutMs?: number, retryOpts?: SafeFetchOptions): Promise<Response | null>;
 /**
  * Fetch text with a hard timeout AND a streaming byte cap: we stop reading once maxBytes have arrived,
  * so a gzip bomb / endless stream can't OOM the process (arrayBuffer() would buffer the whole body first).
  * Returns '' on any failure. Binary responses are decoded lossily — callers only regex over them.
  */
-export declare function fetchText(url: string, init?: RequestInit, maxBytes?: number, timeoutMs?: number): Promise<string>;
+export declare function fetchText(url: string, init?: RequestInit, maxBytes?: number, timeoutMs?: number, retryOpts?: SafeFetchOptions): Promise<string>;
 export declare function headerGet(h: Headers | Record<string, string>, name: string): string | null;
 /** Resolve a possibly-relative href against the page origin; null if it can't be parsed. */
 export declare function resolveUrl(base: string, href: string): string | null;

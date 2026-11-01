@@ -168,7 +168,7 @@ export async function apiSecurityFindings(ctx: ScanContext): Promise<Finding[]> 
       const pre = await safeFetch(ctx.origin + path, { redirect: 'manual' }, ctx.opts.timeoutMs);
       if (!pre || pre.status >= 400) continue;
       if ((pre.headers.get('content-type') || '').toLowerCase().includes('html')) continue;
-      const burst = await Promise.all(Array.from({ length: 15 }, () => safeFetch(ctx.origin + path, { redirect: 'manual' }, ctx.opts.timeoutMs)));
+      const burst = await Promise.all(Array.from({ length: 15 }, () => safeFetch(ctx.origin + path, { redirect: 'manual' }, ctx.opts.timeoutMs, { retries: 0 })));
       const reachable = burst.filter((r) => r && r.status < 400).length;
       if (reachable < 8) continue; // not consistently reachable — don't guess
       const throttled = burst.some((r) => r && (r.status === 429 || r.headers.has('retry-after')));

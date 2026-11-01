@@ -5,7 +5,7 @@ JS bundle, an exposed `.env`/`.git`, broken links, missing security headers, SEO
 gaps. One command, **zero install**, no source access, no headless browser:
 
 ```bash
-npx github:newsengine/vibetesting-agent https://your-app.example.com
+npx github:newsengine/vibe-testing-agent https://your-app.example.com
 ```
 
 📄 **Landing page:** [`docs/index.html`](docs/index.html) (self-contained; serve via GitHub Pages from `/docs`).
@@ -19,15 +19,15 @@ Same shape as a Claude security artifact / `findings-for-agent.md` — ranked **
 
 ```bash
 # Every software update / /security-review
-npx github:newsengine/vibetesting-agent review https://your-app.example.com
+npx github:newsengine/vibe-testing-agent review https://your-app.example.com
 
 # Or flags on any scan:
-npx github:newsengine/vibetesting-agent https://your-app.example.com \
+npx github:newsengine/vibe-testing-agent https://your-app.example.com \
   --agent-report security-review.md \
   --gherkin features/security/hygiene.feature
 
 # New repo: scaffold suite + CI + baseline
-npx github:newsengine/vibetesting-agent init https://your-app.example.com --name my-app
+npx github:newsengine/vibe-testing-agent init https://your-app.example.com --name my-app
 ```
 
 > ### ⚖️ Authorized use only
@@ -221,25 +221,42 @@ name: security
 on: [pull_request, workflow_dispatch]
 jobs:
   probe:
-    uses: newsengine/vibetesting-agent/.github/workflows/probe.yml@main
+    uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
     with:
       url: https://your-deploy.example.com
       cors_path: /api/public/health        # optional
       rate_limit_path: /api/public/health  # optional — burst-test for a 429
       fail_on: high                         # high | medium | any
       allow_report_only_csp: true           # while CSP is still Report-Only
+      profile: full                         # smoke | full (default full)
 ```
 
-> **Private repo?** `uses:` a reusable workflow from a private repo needs org "Actions access" enabled.
-> The portable pattern that always works is **checkout-with-token + run the committed `dist/`** (this
-> repo commits its build, so there's no build step). One-time: add a fine-grained PAT with
-> **Contents: Read** on `newsengine/vibetesting-agent` as an **org secret** named `ANALPROBE_TOKEN`:
-> ```yaml
->   steps:
->     - uses: actions/checkout@v4
->       with: { repository: newsengine/vibetesting-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
->     - run: node .kit/dist/cli.js https://your-deploy.example.com --fail-on high
-> ```
+PR smoke (fast passive subset, target < ~60s) plus a nightly full crawl:
+
+```yaml
+# .github/workflows/security.yml
+name: security
+on:
+  pull_request:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+jobs:
+  pr-smoke:
+    if: github.event_name == 'pull_request'
+    uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
+    with:
+      url: ${{ vars.PREVIEW_URL || 'https://your-preview.example.com' }}
+      profile: smoke
+      fail_on: high
+  nightly-full:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
+    with:
+      url: https://your-deploy.example.com
+      profile: full
+      fail_on: high
+```
 
 ### Findings in the GitHub Security tab (SARIF)
 `--sarif` emits SARIF 2.1.0; upload it so each finding becomes a code-scanning alert:
@@ -248,9 +265,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { security-events: write, contents: read }
     steps:
-      - uses: actions/checkout@v4
-        with: { repository: newsengine/vibetesting-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
-      - run: node .kit/dist/cli.js https://your-deploy.example.com --sarif > probe.sarif
+      - run: npx --yes github:newsengine/vibe-testing-agent https://your-deploy.example.com --sarif > probe.sarif
         continue-on-error: true          # don't block the upload; gate in a separate step if you want
       - uses: github/codeql-action/upload-sarif@v3
         with: { sarif_file: probe.sarif }
@@ -259,24 +274,38 @@ jobs:
 ### Gate on regressions only (baseline)
 Snapshot today's debt once, commit it, then fail CI only on *new* findings:
 ```bash
-node .kit/dist/cli.js https://your-deploy.example.com --write-baseline probe-baseline.json  # once, commit the file
-node .kit/dist/cli.js https://your-deploy.example.com --baseline probe-baseline.json --fail-on medium
+npx github:newsengine/vibe-testing-agent https://your-deploy.example.com --write-baseline probe-baseline.json  # once, commit the file
+npx github:newsengine/vibe-testing-agent https://your-deploy.example.com --baseline probe-baseline.json --fail-on medium
+
+# Flaky-check quarantine (next to the baseline). Quarantined checks still run
+# and are labelled, but do not trip --fail-on. Auto-quarantine uses the last 5
+# results on the same target; two consecutive high-severity failures are never
+# auto-quarantined.
+npx github:newsengine/vibe-testing-agent https://your-deploy.example.com \
+  --baseline probe-baseline.json --quarantine .vta-quarantine.json --fail-on medium
 ```
 
 ## Use the CLI locally / ad-hoc
 ```bash
-# full scan (all 13 categories)
-npx github:newsengine/vibetesting-agent https://app.example.com
+# full scan (all 13 categories) — any URL you own, including preview/staging
+npx github:newsengine/vibe-testing-agent https://app.example.com
+npx github:newsengine/vibe-testing-agent https://pr-12.your-app.pages.dev
+
+# The hosted app only accepts preview hosts that match a pattern the owner verified.
+# The CLI has no such restriction: you are responsible for scanning only hosts you control.
 
 # scope it, gate harder, test CORS, machine-readable output
-npx github:newsengine/vibetesting-agent https://app.example.com \
+npx github:newsengine/vibe-testing-agent https://app.example.com \
   --only secrets,exposure,security \
   --cors-path /api/public/health --allow-report-only-csp \
   --fail-on medium --json
 ```
 Flags: `--only <cats>` · `--skip <cats>` · `--cors-path <p>` · `--rate-limit-path <p>` · `--allow-report-only-csp`
-· `--max-crawl <n>` (links/scripts to fetch-check, default 25) · `--fail-on high|medium|any` · `--json` · `--sarif`
+· `--max-crawl <n>` (links/scripts to fetch-check, default 25) · `--fail-on high|medium|any` · `--retries N` (default 2; `0` disables)
+· `--profile smoke|full` · `--quarantine <file>` · `--json` · `--sarif`
 · `--baseline <file>` · `--write-baseline <file>`.
+
+Transient network errors (resets, timeouts, DNS blips) and HTTP 429/502/503/504 are retried with bounded backoff (honours `Retry-After` within a 10s cap). A check that still fails after retries is reported as **error/inconclusive** — not a security finding — and does not trip `--fail-on`. Each finding records `retries` in `--json` / `--sarif`.
 
 ## Use the white-box helpers in your tests
 ```ts

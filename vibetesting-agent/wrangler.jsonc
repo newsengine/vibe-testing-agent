@@ -29,6 +29,9 @@
       "migrations_dir": "migrations"
     }
   ],
+  "triggers": {
+    "crons": ["0 6 * * *"]
+  },
   "vars": {
     "NEXT_PUBLIC_APP_URL": "https://vibetestingagent.com",
     "NEXT_PUBLIC_LEGAL_NAME": "Newsengine",

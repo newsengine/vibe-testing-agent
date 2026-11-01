@@ -12,6 +12,7 @@ import { assertSafeScanUrl } from './url-safety';
 import { resolveAuthHeaders } from './project-auth';
 import type { User, Project, Scan } from './db/schema';
 import type { ScanMode } from './plans';
+import { recordScanQuarantine } from './quarantine-store';
 
 export interface EnqueueScanInput {
   user: User;
@@ -32,7 +33,7 @@ export interface EnqueueScanInput {
 function shouldRunInline(mode: ScanMode, runInline?: boolean): boolean {
   if (runInline === true) return true;
   if (runInline === false) return false;
-  if (mode === 'lite') return true;
+  if (mode === 'lite' || mode === 'smoke') return true;
   // Full scans need OVH agent when secret is configured (production Workers)
   if (config.scanAgentSecret) return false;
   // Local dev without agent: run inline (monorepo probe or worker scan)
@@ -216,7 +217,24 @@ async function finalizeScanSuccess(
 ): Promise<void> {
   const db = await getDb();
   await consumeScanQuota(scan.userId, scan.mode as ScanMode);
-  const failingIds = result.findings.filter((f) => !f.pass).map((f) => f.id);
+  if (scan.projectId) {
+    const meta = safeJson(scan.metaJson) as { sha?: string } | null;
+    result.findings = await recordScanQuarantine({
+      projectId: scan.projectId,
+      userId: scan.userId,
+      scanId: scan.id,
+      target: scan.url,
+      findings: result.findings,
+      deployFingerprint: meta?.sha || (scan.trigger === 'deploy' || scan.trigger === 'github' ? scan.id : ''),
+    });
+    const quarantinedIds = new Set(result.findings.filter((f) => f.quarantined).map((f) => f.id));
+    result.baselineDiff = {
+      ...result.baselineDiff,
+      newFailures: result.baselineDiff.newFailures.filter((f) => !quarantinedIds.has(f.id) && !f.inconclusive),
+    };
+  }
+
+  const failingIds = result.findings.filter((f) => !f.pass && !f.inconclusive).map((f) => f.id);
 
   // Always materialize Claude /security-review + HTML twin at end of run
   const reviewOpts = {

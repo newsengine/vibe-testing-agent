@@ -8,6 +8,7 @@ import {
   buildSecurityReviewMarkdown,
   buildSecurityReviewHtml,
 } from './security-review';
+import { DEFAULT_RETRIES, fetchWithTransientRetry, isTransientStatus } from './retry';
 
 export interface Finding {
   id: string;
@@ -17,6 +18,9 @@ export interface Finding {
   pass: boolean;
   detail: string;
   fix?: string;
+  retries?: number;
+  inconclusive?: boolean;
+  quarantined?: boolean;
 }
 
 export interface ScanResult {
@@ -42,7 +46,7 @@ export interface ScanResult {
 }
 
 function scoreFromFindings(findings: Finding[]): { score: number; grade: string } {
-  const failed = findings.filter((f) => !f.pass);
+  const failed = findings.filter((f) => !f.pass && !f.inconclusive && !f.quarantined);
   let score = 100;
   for (const f of failed) {
     if (f.severity === 'high') score -= 12;
@@ -56,7 +60,7 @@ function scoreFromFindings(findings: Finding[]): { score: number; grade: string 
 }
 
 function summarize(findings: Finding[]) {
-  const failed = findings.filter((f) => !f.pass);
+  const failed = findings.filter((f) => !f.pass && !f.inconclusive);
   return {
     total: findings.length,
     passed: findings.filter((f) => f.pass).length,
@@ -226,8 +230,9 @@ export async function runWorkerScan(
     pass: boolean,
     detail: string,
     fix?: string,
+    extra?: { retries?: number; inconclusive?: boolean; quarantined?: boolean },
   ): Promise<Finding> => {
-    const finding: Finding = { category, id, title, severity, pass, detail, fix };
+    const finding: Finding = { category, id, title, severity, pass, detail, fix, ...extra };
     findings.push(finding);
     const mark = pass ? 'PASS' : 'FAIL';
     await emit({
@@ -255,34 +260,39 @@ export async function runWorkerScan(
   let res: Response | null = null;
   let html = '';
   let headers = new Headers();
-  try {
-    res = await fetch(url, {
-      redirect: 'follow',
-      headers: { 'user-agent': ua, ...extraHeaders },
-      signal: AbortSignal.timeout(15000),
-    });
-    headers = res.headers;
-    const ct = headers.get('content-type') || '';
-    if (ct.includes('text/html') || ct.includes('text/plain') || ct.includes('javascript')) {
-      html = (await res.text()).slice(0, 500_000);
-    }
-  } catch (e) {
+  const homepage = await fetchWithTransientRetry(
+    url,
+    { redirect: 'follow', headers: { 'user-agent': ua, ...extraHeaders } },
+    { retries: DEFAULT_RETRIES, timeoutMs: 15_000 },
+  );
+  res = homepage.response;
+  if (!res || isTransientStatus(res.status)) {
     await push(
       'reliability',
       'site.unreachable',
-      'Site unreachable',
-      'high',
-      false,
-      String((e as Error).message),
-      'Check DNS and that the deploy is live.',
+      'Site unreachable after retries (error/inconclusive)',
+      'info',
+      true,
+      homepage.error instanceof Error
+        ? homepage.error.message
+        : res
+          ? `HTTP ${res.status} after ${homepage.retries} retr${homepage.retries === 1 ? 'y' : 'ies'}`
+          : 'fetch failed after retries',
+      'Confirm the deploy is live and retry. This is not a security finding.',
+      { retries: homepage.retries, inconclusive: true },
     );
     await emit({
       type: 'done',
-      message: 'Scan aborted — target unreachable',
+      message: 'Scan aborted — target unreachable (inconclusive)',
       total: findings.length,
-      failed: findings.filter((x) => !x.pass).length,
+      failed: 0,
     });
     return findings;
+  }
+  headers = res.headers;
+  const ct = headers.get('content-type') || '';
+  if (ct.includes('text/html') || ct.includes('text/plain') || ct.includes('javascript')) {
+    html = (await res.text()).slice(0, 500_000);
   }
 
   await push(
@@ -485,14 +495,18 @@ async function tryMonorepoProbe(
     if (!existsSync(entry)) return null;
     const mod = await import(pathToFileURL(entry).href);
     const only =
-      mode === 'fast' || mode === 'lite'
-        ? (['secrets', 'exposure', 'security', 'dns', 'framework', 'host'] as const)
-        : undefined;
+      mode === 'smoke'
+        ? (['secrets', 'exposure', 'security'] as const)
+        : mode === 'fast' || mode === 'lite'
+          ? (['secrets', 'exposure', 'security', 'dns', 'framework', 'host'] as const)
+          : undefined;
     return (await mod.probe(url, {
       only: only as never,
-      timeoutMs: 15000,
-      maxCrawl: mode === 'crawl' ? 40 : 15,
+      profile: mode === 'smoke' ? 'smoke' : 'full',
+      timeoutMs: mode === 'smoke' ? 8000 : 15000,
+      maxCrawl: mode === 'crawl' ? 40 : mode === 'smoke' ? 8 : 15,
       extraHeaders,
+      retries: DEFAULT_RETRIES,
     })) as Finding[];
   } catch {
     return null;

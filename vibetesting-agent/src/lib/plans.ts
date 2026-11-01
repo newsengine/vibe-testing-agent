@@ -8,7 +8,7 @@
  */
 
 export type PlanId = 'free' | 'weekly' | 'daily' | 'commit';
-export type ScanMode = 'lite' | 'fast' | 'full' | 'crawl';
+export type ScanMode = 'lite' | 'smoke' | 'fast' | 'full' | 'crawl';
 export type Policy = 'chill' | 'ship' | 'client' | 'launch';
 
 export interface PlanLimits {
@@ -55,7 +55,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     sharePermanent: false,
     badge: false,
     slack: false,
-    modes: ['lite'],
+    modes: ['lite', 'smoke'],
     requireOwnership: false,
   },
   weekly: {
@@ -75,7 +75,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     sharePermanent: true,
     badge: true,
     slack: true,
-    modes: ['lite', 'fast', 'full'],
+    modes: ['lite', 'smoke', 'fast', 'full'],
     requireOwnership: true,
   },
   daily: {
@@ -95,7 +95,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     sharePermanent: true,
     badge: true,
     slack: true,
-    modes: ['lite', 'fast', 'full', 'crawl'],
+    modes: ['lite', 'smoke', 'fast', 'full', 'crawl'],
     requireOwnership: true,
   },
   commit: {
@@ -115,7 +115,7 @@ export const PLANS: Record<PlanId, PlanLimits> = {
     sharePermanent: true,
     badge: true,
     slack: true,
-    modes: ['lite', 'fast', 'full', 'crawl'],
+    modes: ['lite', 'smoke', 'fast', 'full', 'crawl'],
     requireOwnership: true,
   },
 };

@@ -1,6 +1,9 @@
 // Public API for @newsengine/vibetesting-agent.
 export { probe, scan, summarize, discoverPages, normalizeUrl, ALL_CATEGORIES, } from './probe.js';
 export { loadConfig } from './config.js';
+export { evaluateFlaky, applyQuarantine, recordScanOutcomes, loadQuarantineFile, saveQuarantineFile, emptyQuarantineFile, FLAKY_WINDOW_SCANS, } from './quarantine.js';
+export { applyProfile, parseProfile, SMOKE_CATEGORIES, SMOKE_PATHS, smokeCheckIds, } from './profile.js';
+export { DEFAULT_RETRIES, isTransientStatus, isNonRetryableClientError, classifyTransientError, decideRetry, parseRetryAfter, backoffMs, withRetries, inconclusiveFinding, gateableFindings, } from './retry.js';
 export { securityChecks, secretChecks, exposureChecks, reliabilityChecks, seoChecks, a11yChecks, performanceChecks, } from './checks.js';
 export { scanSecrets, SECRET_RULES, } from './core.js';
 export { idorProbe, checkSecurityHeaders, checkCookieFlags, setTenantParam, classifyTenantAccess, rbacProbe, dataIsolationProbe, massAssignmentProbe, findSensitiveFields, } from './testkit.js';

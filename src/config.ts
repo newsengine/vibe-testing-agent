@@ -11,6 +11,8 @@ export interface FileConfig {
   corsPath?: string;
   rateLimitPath?: string;
   timeoutMs?: number;
+  retries?: number;
+  profile?: 'smoke' | 'full';
   maxCrawl?: number;
   crawl?: number;
   allowReportOnlyCsp?: boolean;
@@ -41,6 +43,12 @@ export function loadConfig(explicitPath?: string): { config: FileConfig; error?:
     if (v !== undefined && (typeof v !== 'number' || !Number.isFinite(v) || v <= 0)) {
       return { config: {}, error: `config "${k}" must be a positive number (got ${JSON.stringify(v)})` };
     }
+  }
+  if (config.retries !== undefined && (typeof config.retries !== 'number' || !Number.isInteger(config.retries) || config.retries < 0)) {
+    return { config: {}, error: `config "retries" must be an integer >= 0 (got ${JSON.stringify(config.retries)})` };
+  }
+  if (config.profile !== undefined && config.profile !== 'smoke' && config.profile !== 'full') {
+    return { config: {}, error: `config "profile" must be smoke|full (got ${JSON.stringify(config.profile)})` };
   }
   if (config.failOn !== undefined && !['high', 'medium', 'any'].includes(config.failOn)) {
     return { config: {}, error: `config "failOn" must be high|medium|any (got ${JSON.stringify(config.failOn)})` };

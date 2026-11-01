@@ -6,6 +6,9 @@ import { planOf } from '@/lib/plans';
 import { json, errorResponse, clientIp } from '@/lib/http';
 import { rateLimit } from '@/lib/rate-limit';
 import { audit } from '@/lib/audit';
+import { resolveWebhookTarget } from '@/lib/webhook-target';
+import { previewPatternStrings } from '@/lib/preview-hosts';
+import { webhookScanMode } from '@/lib/schedule-policy';
 
 /**
  * Generic deploy webhook — call after every software update:
@@ -56,21 +59,28 @@ export async function POST(req: Request, ctx: { params: Promise<{ secret: string
     const vercelUrl =
       (body?.payload as { deployment?: { url?: string } } | undefined)?.deployment?.url ||
       (body?.url as string | undefined);
-    const url = typeof vercelUrl === 'string' && vercelUrl
-      ? vercelUrl.startsWith('http')
-        ? vercelUrl
-        : `https://${vercelUrl}`
-      : project.url;
+    const candidate = typeof vercelUrl === 'string' ? vercelUrl : undefined;
+    const previewPatterns = await previewPatternStrings(project.id);
+    const target = resolveWebhookTarget({ ...project, previewPatterns }, candidate);
+    if (!target.ok) {
+      // Reject — do not fall back to project.url (that would scan production
+      // and report a false pass for an untested preview).
+      return json({ error: target.error, code: target.code }, 400);
+    }
 
-    const mode = project.policy === 'launch' ? 'crawl' : project.policy === 'client' ? 'full' : 'full';
+    const mode = webhookScanMode({
+      policy: project.policy,
+      projectHostname: project.hostname,
+      targetHostname: target.hostname,
+    });
 
     const scan = await enqueueScan({
       user,
       project,
-      url,
-      mode: mode as 'full' | 'crawl',
+      url: target.url,
+      mode,
       trigger: 'deploy',
-      authorized: project.verified || true,
+      authorized: project.verified,
       meta: body,
       runInline: true,
     });
@@ -78,7 +88,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ secret: string
     await audit('webhook.deploy', {
       userId: user.id,
       target: project.id,
-      detail: { scanId: scan.id, url },
+      detail: { scanId: scan.id, url: target.url },
       ip,
     });
 

@@ -11,7 +11,8 @@ export default async function ScanDetailPage({ params }: { params: Promise<{ id:
   const scan = await getScanForUser(id, user.id);
   if (!scan) notFound();
 
-  const findings = parseFindings(scan).filter((f) => !f.pass);
+  const allFindings = parseFindings(scan);
+  const findings = allFindings.filter((f) => !f.pass || f.inconclusive || f.quarantined);
   let summary: { failHigh?: number; failMedium?: number; failed?: number; passed?: number } = {};
   let baselineDiff: { newFailures?: { id: string; title: string; severity: string }[]; resolved?: string[] } = {};
   try {
@@ -124,6 +125,19 @@ export default async function ScanDetailPage({ params }: { params: Promise<{ id:
                   {f.severity}
                 </span>
                 <span className="text-xs text-[var(--mut)]">{f.category}</span>
+                {f.inconclusive && (
+                  <span className="mono rounded border border-[var(--mut)] px-2 py-0.5 text-[10px] uppercase text-[var(--mut)]">
+                    error/inconclusive
+                  </span>
+                )}
+                {f.quarantined && (
+                  <span className="mono rounded border border-[var(--md)]/40 px-2 py-0.5 text-[10px] uppercase text-[var(--md)]">
+                    quarantined
+                  </span>
+                )}
+                {(f.retries ?? 0) > 0 && (
+                  <span className="mono text-[10px] text-[var(--mut)]">retries: {f.retries}</span>
+                )}
                 <span className="font-semibold">{f.title}</span>
               </div>
               <p className="mt-2 text-sm text-[var(--mut)]">{f.detail}</p>

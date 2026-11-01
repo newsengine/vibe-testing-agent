@@ -2,7 +2,7 @@
 #
 #   jobs:
 #     scan:
-#       uses: newsengine/vibetesting-agent/.github/workflows/probe.yml@main
+#       uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
 #       with:
 #         url: https://your-deploy.example.com
 #         only: secrets,exposure,security   # optional — restrict to these categories
@@ -26,6 +26,8 @@ on:
       rate_limit_path: { required: false, type: string, default: '' }
       fail_on: { required: false, type: string, default: 'high' }
       allow_report_only_csp: { required: false, type: boolean, default: false }
+      profile: { required: false, type: string, default: 'full' }
+      retries: { required: false, type: string, default: '2' }
     secrets:
       CF_SMOKE_KEY: { required: false }
       CF_ACCESS_CLIENT_ID: { required: false }
@@ -44,10 +46,10 @@ jobs:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
-          ARGS=("${{ inputs.url }}" --fail-on "${{ inputs.fail_on }}")
+          ARGS=("${{ inputs.url }}" --fail-on "${{ inputs.fail_on }}" --profile "${{ inputs.profile }}" --retries "${{ inputs.retries }}")
           if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
           if [ -n "${{ inputs.skip }}" ]; then ARGS+=(--skip "${{ inputs.skip }}"); fi
           if [ -n "${{ inputs.cors_path }}" ]; then ARGS+=(--cors-path "${{ inputs.cors_path }}"); fi
           if [ -n "${{ inputs.rate_limit_path }}" ]; then ARGS+=(--rate-limit-path "${{ inputs.rate_limit_path }}"); fi
           if [ "${{ inputs.allow_report_only_csp }}" = "true" ]; then ARGS+=(--allow-report-only-csp); fi
-          npx --yes github:newsengine/vibetesting-agent "${ARGS[@]}"
+          npx --yes github:newsengine/vibe-testing-agent "${ARGS[@]}"

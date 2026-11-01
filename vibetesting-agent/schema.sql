@@ -107,3 +107,45 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   count INTEGER NOT NULL DEFAULT 0,
   window_start INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS project_preview_patterns (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  pattern TEXT NOT NULL,
+  proof_host TEXT NOT NULL,
+  verified INTEGER NOT NULL DEFAULT 0,
+  verify_method TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS preview_patterns_project_pattern_idx
+  ON project_preview_patterns(project_id, pattern);
+CREATE INDEX IF NOT EXISTS preview_patterns_project_idx
+  ON project_preview_patterns(project_id);
+
+CREATE TABLE IF NOT EXISTS check_history (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  target TEXT NOT NULL,
+  check_id TEXT NOT NULL,
+  pass INTEGER NOT NULL,
+  severity TEXT,
+  scan_id TEXT,
+  deploy_fingerprint TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS check_history_lookup_idx
+  ON check_history(project_id, target, check_id, created_at);
+
+CREATE TABLE IF NOT EXISTS quarantined_checks (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  target TEXT NOT NULL,
+  check_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  quarantined_at INTEGER NOT NULL,
+  unquarantined_at INTEGER,
+  auto INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS quarantined_checks_project_idx
+  ON quarantined_checks(project_id);

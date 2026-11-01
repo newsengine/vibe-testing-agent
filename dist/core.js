@@ -3,6 +3,8 @@
 // must run via `npx` with no install and no headless browser, so a vibe coder can point it at a
 // deploy in one command. Regex HTML parsing is "good enough" for black-box posture checks.
 import tls from 'node:tls';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { DEFAULT_RETRIES, decideRetry, withRetries, } from './retry.js';
 /**
  * Probe the served TLS: cert expiry + negotiated protocol + cipher. Uses a raw TLS connection because
  * fetch() exposes none of this. Fails soft to nulls.
@@ -60,6 +62,15 @@ export function gradeTlsCipher(cipher) {
 }
 // Every network call gets a hard deadline so a dead/slow/hostile site can't hang the scan forever.
 export const DEFAULT_TIMEOUT_MS = 10_000;
+/** Per-scan retry budget. `probe()` installs this so every safeFetch honours `--retries`. */
+const retryBudget = new AsyncLocalStorage();
+export function runWithRetryBudget(retries, fn) {
+    return retryBudget.run(Math.max(0, Math.floor(retries)), fn);
+}
+export function currentRetryBudget() {
+    const stored = retryBudget.getStore();
+    return stored === undefined ? DEFAULT_RETRIES : stored;
+}
 /** fetch() with an AbortController timeout. Merges any caller-supplied signal-less init. */
 async function fetchWithTimeout(url, init, timeoutMs) {
     const ac = new AbortController();
@@ -72,23 +83,43 @@ async function fetchWithTimeout(url, init, timeoutMs) {
         clearTimeout(timer);
     }
 }
-export async function safeFetch(url, init, timeoutMs = DEFAULT_TIMEOUT_MS) {
-    try {
-        return await fetchWithTimeout(url, { redirect: 'manual', ...init }, timeoutMs);
-    }
-    catch {
-        return null;
-    }
+function retryCount(opts) {
+    return opts?.retries !== undefined ? Math.max(0, Math.floor(opts.retries)) : currentRetryBudget();
+}
+/**
+ * Fetch with bounded backoff on network reset / timeout / DNS / 429/502/503/504.
+ * Honour Retry-After within the cap. Never retries other 4xx or a successful response.
+ */
+export async function fetchWithRetry(url, init, timeoutMs, retries) {
+    const result = await withRetries(async () => fetchWithTimeout(url, init, timeoutMs), {
+        retries,
+        isRetryable: (res) => decideRetry({
+            status: res.status,
+            retryAfter: res.headers.get('retry-after'),
+        }),
+    });
+    return {
+        response: result.value ?? null,
+        retries: result.retries,
+        exhausted: result.exhausted,
+        lastKind: result.lastKind,
+        error: result.error,
+    };
+}
+export async function safeFetch(url, init, timeoutMs = DEFAULT_TIMEOUT_MS, retryOpts) {
+    const result = await fetchWithRetry(url, { redirect: 'manual', ...init }, timeoutMs, retryCount(retryOpts));
+    return result.response;
 }
 /**
  * Fetch text with a hard timeout AND a streaming byte cap: we stop reading once maxBytes have arrived,
  * so a gzip bomb / endless stream can't OOM the process (arrayBuffer() would buffer the whole body first).
  * Returns '' on any failure. Binary responses are decoded lossily — callers only regex over them.
  */
-export async function fetchText(url, init, maxBytes = 3_000_000, timeoutMs = DEFAULT_TIMEOUT_MS) {
+export async function fetchText(url, init, maxBytes = 3_000_000, timeoutMs = DEFAULT_TIMEOUT_MS, retryOpts) {
     try {
-        const res = await fetchWithTimeout(url, { redirect: 'follow', ...init }, timeoutMs);
-        if (!res.ok || !res.body)
+        const attempt = await fetchWithRetry(url, { redirect: 'follow', ...init }, timeoutMs, retryCount(retryOpts));
+        const res = attempt.response;
+        if (!res || !res.ok || !res.body)
             return '';
         const reader = res.body.getReader();
         const decoder = new TextDecoder('utf-8', { fatal: false });

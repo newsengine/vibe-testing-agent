@@ -2,7 +2,7 @@
 #
 #   jobs:
 #     deps:
-#       uses: newsengine/vibetesting-agent/.github/workflows/audit.yml@main
+#       uses: newsengine/vibe-testing-agent/.github/workflows/audit.yml@main
 #       with:
 #         level: high          # low | moderate | high | critical (default high)
 #         prod_only: false     # audit only production deps
@@ -30,4 +30,4 @@ jobs:
         run: |
           ARGS=(audit --level "${{ inputs.level }}")
           if [ "${{ inputs.prod_only }}" = "true" ]; then ARGS+=(--prod); fi
-          npx --yes github:newsengine/vibetesting-agent "${ARGS[@]}"
+          npx --yes github:newsengine/vibe-testing-agent "${ARGS[@]}"

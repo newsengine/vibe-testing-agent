@@ -22,6 +22,9 @@
 //   --max-crawl 25                  how many links/scripts to fetch-check
 //   --plugins <dir>                 dir of custom JSON plugin templates (default ./vibetesting-agent-plugins)
 //   --fail-on high|medium|any       CI exit threshold (default high)
+//   --retries N                     transient HTTP retries (default 2; 0 disables)
+//   --profile smoke|full            smoke = fast passive subset; full = default suite
+//   --quarantine <file>             local flaky-check quarantine (next to --baseline)
 //   --json                          machine-readable output
 //   --sarif                         emit SARIF 2.1.0 (for GitHub code scanning / upload-sarif)
 //   --baseline <file>               only fail on findings NOT in this baseline file
@@ -37,6 +40,9 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { probe, summarize, normalizeUrl, discoverPages, ALL_CATEGORIES } from './probe.js';
+import { DEFAULT_RETRIES, gateableFindings } from './retry.js';
+import { parseProfile } from './profile.js';
+import { applyQuarantine, loadQuarantineFile, recordScanOutcomes, saveQuarantineFile } from './quarantine.js';
 import { runNpmAudit, failsAtLevel } from './audit.js';
 import { toSarif } from './sarif.js';
 import { buildBaseline, applyBaseline } from './baseline.js';
@@ -158,7 +164,7 @@ function syncGithubIssues(repo, findings, target, apply) {
     console.error(`   done: opened ${plan.toOpen.length}, updated ${plan.toUpdate.length}, closed ${plan.toClose.length}`);
 }
 const failGate = (findings, failOn) => {
-    const gate = findings.filter((f) => !f.pass);
+    const gate = gateableFindings(findings);
     const h = gate.filter((f) => f.severity === 'high').length;
     const m = gate.filter((f) => f.severity === 'medium').length;
     return failOn === 'any' ? gate.length > 0 : failOn === 'medium' ? h + m > 0 : h > 0;
@@ -613,6 +619,28 @@ async function mainScan() {
         allowReportOnlyCsp: flag('--allow-report-only-csp') || !!config.allowReportOnlyCsp,
         maxCrawl: arg('--max-crawl') ? num('--max-crawl', 25) : config.maxCrawl,
         timeoutMs: arg('--timeout') ? num('--timeout', 10_000) : config.timeoutMs,
+        retries: (() => {
+            const raw = arg('--retries');
+            if (raw === undefined)
+                return config.retries ?? DEFAULT_RETRIES;
+            const n = Number(raw);
+            if (!Number.isInteger(n) || n < 0) {
+                console.error(`--retries must be an integer >= 0 (got "${raw}")`);
+                process.exit(2);
+            }
+            return n;
+        })(),
+        profile: (() => {
+            const raw = arg('--profile') ?? config.profile;
+            if (raw === undefined)
+                return 'full';
+            const parsed = parseProfile(raw);
+            if (!parsed) {
+                console.error(`--profile must be smoke|full (got "${raw}")`);
+                process.exit(2);
+            }
+            return parsed;
+        })(),
         pluginsDir: arg('--plugins') ?? config.pluginsDir,
         extraHeaders: mergedHeaders,
         apiWrite: flag('--api-write') || !!config.apiWrite,
@@ -648,7 +676,7 @@ async function mainScan() {
         // only the homepage was found — fall through to the normal single-URL flow below
     }
     const startedAt = new Date().toISOString();
-    const findings = await probe(url, opts);
+    let findings = await probe(url, opts);
     // #43 — active injection engine (opt-in + authorized, non-destructive). Merged into findings so it flows
     // through the record/report/issue-feed like any other check.
     if (opts.authorizedActive) {
@@ -661,6 +689,16 @@ async function mainScan() {
         catch (e) {
             console.error(`active injection error: ${String(e?.message || e)}`);
         }
+    }
+    const quarantinePath = arg('--quarantine');
+    if (quarantinePath) {
+        let qfile = loadQuarantineFile(quarantinePath);
+        const fingerprint = arg('--sha') || process.env.GITHUB_SHA || process.env.VTA_DEPLOY_SHA || '';
+        qfile = recordScanOutcomes(qfile, findings, url, fingerprint);
+        saveQuarantineFile(quarantinePath, qfile);
+        findings = applyQuarantine(findings, qfile, url);
+        const n = qfile.entries.filter((e) => e.quarantinedAt).length;
+        console.error(`🧷 quarantine ${quarantinePath}: ${n} check(s) quarantined (reported, not gated)`);
     }
     const sum = summarize(findings);
     // Run record: every sub-test keyed by its VTA number — logged to the ledger database and used for the
@@ -770,7 +808,8 @@ async function mainScan() {
         diff = applyBaseline(findings, baseline);
     }
     // The set CI actually gates on: new-only when a baseline is in play, otherwise every failure.
-    const gateFails = diff ? diff.newFailures : findings.filter((f) => !f.pass);
+    // Inconclusive (retry-exhausted) and quarantined checks never trip --fail-on.
+    const gateFails = gateableFindings(diff ? diff.newFailures : findings);
     if (flag('--sarif')) {
         // Report new-only under a baseline so the Security tab shows regressions, not accepted debt.
         console.log(JSON.stringify(toSarif(diff ? diff.newFailures : findings, { url, version: VERSION }), null, 2));
@@ -794,8 +833,10 @@ async function mainScan() {
             for (const f of group) {
                 if (quiet && f.pass)
                     continue;
-                const mark = f.pass ? '  ✅' : `  ${SEV_ICON[f.severity]}`;
-                console.log(`${mark} [${f.severity.toUpperCase()}] ${f.title}`);
+                const retryNote = f.retries ? `  (retries: ${f.retries})` : '';
+                const mark = f.inconclusive ? '  ⚪' : f.pass ? '  ✅' : `  ${SEV_ICON[f.severity]}`;
+                const label = f.inconclusive ? 'INCONCLUSIVE' : f.quarantined ? 'QUARANTINED' : f.severity.toUpperCase();
+                console.log(`${mark} [${label}] ${f.title}${retryNote}`);
                 console.log(`        ${f.detail}`);
                 if (!f.pass && f.fix)
                     console.log(`        ↳ fix: ${f.fix}`);

@@ -86,12 +86,26 @@ export const projects = sqliteTable('projects', {
   uniqueIndex('projects_user_hostname_idx').on(t.userId, t.hostname),
 ]);
 
+export const projectPreviewPatterns = sqliteTable('project_preview_patterns', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  pattern: text('pattern').notNull(),
+  proofHost: text('proof_host').notNull(),
+  verified: integer('verified', { mode: 'boolean' }).notNull().default(false),
+  verifyMethod: text('verify_method'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+}, (t) => [
+  uniqueIndex('preview_patterns_project_pattern_idx').on(t.projectId, t.pattern),
+  index('preview_patterns_project_idx').on(t.projectId),
+]);
+
 export const scans = sqliteTable('scans', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
   url: text('url').notNull(),
-  mode: text('mode', { enum: ['lite', 'fast', 'full', 'crawl'] }).notNull().default('fast'),
+  mode: text('mode', { enum: ['lite', 'smoke', 'fast', 'full', 'crawl'] }).notNull().default('fast'),
   trigger: text('trigger', {
     enum: ['manual', 'api', 'mcp', 'deploy', 'github', 'schedule', 'rescan'],
   }).notNull().default('manual'),
@@ -175,9 +189,39 @@ export const testResults = sqliteTable('test_results', {
   index('test_results_vta_idx').on(t.vtaNumber),
 ]);
 
+export const checkHistory = sqliteTable('check_history', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  target: text('target').notNull(),
+  checkId: text('check_id').notNull(),
+  pass: integer('pass', { mode: 'boolean' }).notNull(),
+  severity: text('severity'),
+  scanId: text('scan_id'),
+  deployFingerprint: text('deploy_fingerprint'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, (t) => [
+  index('check_history_lookup_idx').on(t.projectId, t.target, t.checkId, t.createdAt),
+]);
+
+export const quarantinedChecks = sqliteTable('quarantined_checks', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  target: text('target').notNull(),
+  checkId: text('check_id').notNull(),
+  reason: text('reason').notNull(),
+  quarantinedAt: integer('quarantined_at', { mode: 'timestamp_ms' }).notNull(),
+  unquarantinedAt: integer('unquarantined_at', { mode: 'timestamp_ms' }),
+  auto: integer('auto', { mode: 'boolean' }).notNull().default(true),
+}, (t) => [
+  index('quarantined_checks_project_idx').on(t.projectId),
+]);
+
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
+export type ProjectPreviewPattern = typeof projectPreviewPatterns.$inferSelect;
 export type Scan = typeof scans.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type TestRun = typeof testRuns.$inferSelect;
 export type TestResult = typeof testResults.$inferSelect;
+export type CheckHistoryRow = typeof checkHistory.$inferSelect;
+export type QuarantinedCheck = typeof quarantinedChecks.$inferSelect;

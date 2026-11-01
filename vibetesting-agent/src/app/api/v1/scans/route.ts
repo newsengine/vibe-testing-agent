@@ -11,7 +11,7 @@ import { planOf } from '@/lib/plans';
 const createSchema = z.object({
   url: z.string().min(3).max(500).optional(),
   projectId: z.string().optional(),
-  mode: z.enum(['lite', 'fast', 'full', 'crawl']).optional(),
+  mode: z.enum(['lite', 'smoke', 'fast', 'full', 'crawl']).optional(),
   authorized: z.boolean(),
   trigger: z.enum(['manual', 'api', 'mcp', 'deploy', 'github', 'schedule', 'rescan']).optional(),
 });
