@@ -262,8 +262,11 @@ npx github:newsengine/vibe-testing-agent https://app.example.com \
   --fail-on medium --json
 ```
 Flags: `--only <cats>` · `--skip <cats>` · `--cors-path <p>` · `--rate-limit-path <p>` · `--allow-report-only-csp`
-· `--max-crawl <n>` (links/scripts to fetch-check, default 25) · `--fail-on high|medium|any` · `--json` · `--sarif`
+· `--max-crawl <n>` (links/scripts to fetch-check, default 25) · `--fail-on high|medium|any` · `--retries N` (default 2; `0` disables)
+· `--profile smoke|full` · `--quarantine <file>` · `--json` · `--sarif`
 · `--baseline <file>` · `--write-baseline <file>`.
+
+Transient network errors (resets, timeouts, DNS blips) and HTTP 429/502/503/504 are retried with bounded backoff (honours `Retry-After` within a 10s cap). A check that still fails after retries is reported as **error/inconclusive** — not a security finding — and does not trip `--fail-on`. Each finding records `retries` in `--json` / `--sarif`.
 
 ## Use the white-box helpers in your tests
 ```ts

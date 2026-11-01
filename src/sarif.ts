@@ -21,7 +21,8 @@ export interface SarifOptions {
 }
 
 export function toSarif(findings: Finding[], opts: SarifOptions = {}): unknown {
-  const failing = findings.filter((f) => !f.pass);
+  // Inconclusive / error results are not security findings — omit them from the Security tab.
+  const failing = findings.filter((f) => !f.pass && !f.inconclusive);
 
   // One rule per distinct finding id — carries the fix as help text so it shows in the Security tab.
   const rules = new Map<string, { id: string; name: string; shortDescription: { text: string }; help?: { text: string }; defaultConfiguration: { level: string }; properties: Record<string, unknown> }>();
@@ -56,7 +57,12 @@ export function toSarif(findings: Finding[], opts: SarifOptions = {}): unknown {
     message: { text: f.fix ? `${f.detail}\n\nFix: ${f.fix}` : f.detail },
     // No file coordinates for a black-box scan — anchor to the scanned URL so the alert has a location.
     ...(opts.url ? { locations: [{ physicalLocation: { artifactLocation: { uri: opts.url } } }] } : {}),
-    properties: { category: f.category, severity: f.severity },
+    properties: {
+      category: f.category,
+      severity: f.severity,
+      retries: f.retries ?? 0,
+      ...(f.quarantined ? { quarantined: true } : {}),
+    },
   }));
 
   return {

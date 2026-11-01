@@ -5,6 +5,11 @@ export {
 } from './probe.js';
 export { loadConfig, type FileConfig } from './config.js';
 export {
+  DEFAULT_RETRIES, isTransientStatus, isNonRetryableClientError, classifyTransientError,
+  decideRetry, parseRetryAfter, backoffMs, withRetries, inconclusiveFinding, gateableFindings,
+  type TransientKind, type RetryDecision,
+} from './retry.js';
+export {
   securityChecks, secretChecks, exposureChecks, reliabilityChecks, seoChecks, a11yChecks, performanceChecks,
 } from './checks.js';
 export {

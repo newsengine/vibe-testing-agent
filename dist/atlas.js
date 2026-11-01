@@ -135,7 +135,7 @@ export async function atlasChecks(ctx) {
     // AML.T0034 / AML.T0029 — Cost Harvesting / Denial of ML Service: opt-in burst of an expensive AI route.
     if (ctx.opts.rateLimitScan && live.length) {
         const target = live.find((p) => /chat|generate|complet|llm|ask|agent|rag/.test(p)) || live[0];
-        const burst = await Promise.all(Array.from({ length: 12 }, () => safeFetch(ctx.origin + target, { redirect: 'manual' }, ctx.opts.timeoutMs)));
+        const burst = await Promise.all(Array.from({ length: 12 }, () => safeFetch(ctx.origin + target, { redirect: 'manual' }, ctx.opts.timeoutMs, { retries: 0 })));
         const reachable = burst.filter((r) => r && r.status < 400).length;
         if (reachable >= 6) {
             const throttled = burst.some((r) => r && (r.status === 429 || r.headers.has('retry-after')));

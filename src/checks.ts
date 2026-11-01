@@ -105,7 +105,17 @@ export async function securityChecks(ctx: ScanContext): Promise<Finding[]> {
   }
 
   if (!ctx.res) {
-    out.push(f('security', 'reachability', 'Could not reach the site', 'high', false, `fetch ${origin} failed`));
+    out.push({
+      category: 'security',
+      id: 'reachability',
+      title: 'Site unreachable after retries (error/inconclusive)',
+      severity: 'info',
+      pass: true,
+      inconclusive: true,
+      retries: ctx.opts.retries ?? 0,
+      detail: `fetch ${origin} failed`,
+      fix: 'Confirm the deploy is live and retry. This is not a security finding.',
+    });
     return out;
   }
   const h = ctx.headers;
@@ -278,7 +288,7 @@ export async function securityChecks(ctx: ScanContext): Promise<Finding[]> {
   // Rate limiting (opt-in): burst a path and expect a 429.
   if (ctx.opts.rateLimitPath) {
     const target = origin + ctx.opts.rateLimitPath;
-    const burst = await Promise.all(Array.from({ length: 25 }, () => safeFetch(target)));
+    const burst = await Promise.all(Array.from({ length: 25 }, () => safeFetch(target, undefined, undefined, { retries: 0 })));
     const got429 = burst.some((r) => r && r.status === 429);
     out.push(f('security', 'rate-limit', got429 ? 'Rate limiting active' : 'No rate limiting observed', 'medium', got429, got429 ? '25-request burst was throttled (429)' : `25 rapid requests to ${ctx.opts.rateLimitPath} were not throttled`, got429 ? undefined : 'Add rate limiting on auth/public endpoints so they can\'t be brute-forced or hammered.'));
   }

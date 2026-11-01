@@ -121,7 +121,7 @@ async function api(path, body) {
 
 function runProbe(url, mode, authHeaders) {
   return new Promise((resolve, reject) => {
-    const args = [CLI, url, '--json'];
+    const args = [CLI, url, '--json', '--retries', '2'];
     if (mode === 'fast') {
       args.push('--only', 'secrets,exposure,security,dns,framework,host,components');
     }

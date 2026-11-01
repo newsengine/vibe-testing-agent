@@ -10,7 +10,8 @@ const LEVEL = {
     info: 'note',
 };
 export function toSarif(findings, opts = {}) {
-    const failing = findings.filter((f) => !f.pass);
+    // Inconclusive / error results are not security findings — omit them from the Security tab.
+    const failing = findings.filter((f) => !f.pass && !f.inconclusive);
     // One rule per distinct finding id — carries the fix as help text so it shows in the Security tab.
     const rules = new Map();
     for (const f of failing) {
@@ -44,7 +45,12 @@ export function toSarif(findings, opts = {}) {
         message: { text: f.fix ? `${f.detail}\n\nFix: ${f.fix}` : f.detail },
         // No file coordinates for a black-box scan — anchor to the scanned URL so the alert has a location.
         ...(opts.url ? { locations: [{ physicalLocation: { artifactLocation: { uri: opts.url } } }] } : {}),
-        properties: { category: f.category, severity: f.severity },
+        properties: {
+            category: f.category,
+            severity: f.severity,
+            retries: f.retries ?? 0,
+            ...(f.quarantined ? { quarantined: true } : {}),
+        },
     }));
     return {
         $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',

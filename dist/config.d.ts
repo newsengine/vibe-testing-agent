@@ -5,6 +5,8 @@ export interface FileConfig {
     corsPath?: string;
     rateLimitPath?: string;
     timeoutMs?: number;
+    retries?: number;
+    profile?: 'smoke' | 'full';
     maxCrawl?: number;
     crawl?: number;
     allowReportOnlyCsp?: boolean;

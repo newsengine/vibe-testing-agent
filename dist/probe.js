@@ -12,6 +12,8 @@ import { hostChecks } from './host.js';
 import { pluginChecks } from './plugins.js';
 import { appStyleChecks } from './appstyle.js';
 import { atlasChecks } from './atlas.js';
+import { DEFAULT_RETRIES, decideRetry, inconclusiveFinding } from './retry.js';
+import { fetchWithRetry, runWithRetryBudget } from './core.js';
 const RUNNERS = {
     security: securityChecks,
     secrets: secretChecks,
@@ -39,34 +41,61 @@ async function buildContext(baseUrl, opts) {
     let res = null;
     let html = '';
     let headers = new Headers();
-    // The homepage fetch is the one call not going through safeFetch, so it needs its own hard timeout —
-    // otherwise a site that accepts the connection but never responds would hang the entire scan.
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? 10_000);
-    try {
-        res = await fetch(url.origin, { redirect: 'follow', signal: ac.signal, headers: opts.extraHeaders });
+    const timeoutMs = opts.timeoutMs ?? 10_000;
+    const retries = opts.retries ?? DEFAULT_RETRIES;
+    const attempt = await fetchWithRetry(url.origin, { redirect: 'follow', headers: opts.extraHeaders }, timeoutMs, retries);
+    res = attempt.response;
+    if (res) {
         headers = res.headers;
         if ((res.headers.get('content-type') || '').includes('html')) {
             html = (await res.text()).slice(0, 5_000_000);
         }
     }
-    catch {
-        res = null;
-    }
-    finally {
-        clearTimeout(timer);
-    }
+    const homepageTransient = !res
+        || decideRetry({ status: res.status, retryAfter: res.headers.get('retry-after') }).retry;
     const stacks = detectStacks({ html, headers, setCookie: headers.getSetCookie?.() ?? [] });
-    return { baseUrl, origin: url.origin, url, res, html, headers, opts, stacks };
+    return {
+        baseUrl,
+        origin: url.origin,
+        url,
+        res,
+        html,
+        headers,
+        opts,
+        stacks,
+        homepageRetries: attempt.retries,
+        homepageTransient,
+    };
+}
+function stampRetries(findings) {
+    return findings.map((f) => (f.retries == null ? { ...f, retries: 0 } : f));
 }
 /** Run the comprehensive scan. Returns every finding across the selected categories. */
 export async function probe(baseUrl, opts = {}) {
-    const ctx = await buildContext(baseUrl, opts);
-    const selected = (opts.only ?? ALL_CATEGORIES).filter((c) => !(opts.skip ?? []).includes(c));
-    const results = await Promise.all(selected.map((c) => RUNNERS[c](ctx).catch((e) => [
-        { category: c, id: `${c}.error`, title: `${c} check crashed`, severity: 'info', pass: true, detail: String(e?.message || e) },
-    ])));
-    return results.flat();
+    const retries = opts.retries ?? DEFAULT_RETRIES;
+    return runWithRetryBudget(retries, async () => {
+        const ctx = await buildContext(baseUrl, opts);
+        if (ctx.homepageTransient) {
+            const kind = ctx.res
+                ? `HTTP ${ctx.res.status}`
+                : 'network/timeout/DNS failure';
+            return [
+                inconclusiveFinding({
+                    id: 'reachability',
+                    category: 'security',
+                    title: 'Site unreachable after retries (error/inconclusive)',
+                    detail: `fetch ${ctx.origin} failed (${kind}) after ${ctx.homepageRetries} retr${ctx.homepageRetries === 1 ? 'y' : 'ies'}`,
+                    retries: ctx.homepageRetries,
+                    fix: 'Confirm the deploy is live and retry. This is not a security finding.',
+                }),
+            ];
+        }
+        const selected = (opts.only ?? ALL_CATEGORIES).filter((c) => !(opts.skip ?? []).includes(c));
+        const results = await Promise.all(selected.map((c) => RUNNERS[c](ctx).catch((e) => [
+            { category: c, id: `${c}.error`, title: `${c} check crashed`, severity: 'info', pass: true, detail: String(e?.message || e), retries: 0 },
+        ])));
+        return stampRetries(results.flat());
+    });
 }
 /** Alias — reads better for the full-app use case. */
 export const scan = probe;
