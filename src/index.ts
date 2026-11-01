@@ -5,6 +5,10 @@ export {
 } from './probe.js';
 export { loadConfig, type FileConfig } from './config.js';
 export {
+  applyProfile, parseProfile, SMOKE_CATEGORIES, SMOKE_PATHS, smokeCheckIds,
+  type ScanProfile,
+} from './profile.js';
+export {
   DEFAULT_RETRIES, isTransientStatus, isNonRetryableClientError, classifyTransientError,
   decideRetry, parseRetryAfter, backoffMs, withRetries, inconclusiveFinding, gateableFindings,
   type TransientKind, type RetryDecision,

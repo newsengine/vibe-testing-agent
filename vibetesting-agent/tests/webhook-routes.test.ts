@@ -306,9 +306,14 @@ test('deploy hook: allowed preview pattern is scanned with parent authorization'
   const res = await deploy({ url: 'https://pr-9.preview.example.com' });
   assert.equal(res.status, 200);
   assert.equal(enqueueScanMock.mock.calls.length, 1);
-  const input = enqueueScanMock.mock.calls[0]?.arguments[0] as { url: string; authorized: boolean };
+  const input = enqueueScanMock.mock.calls[0]?.arguments[0] as {
+    url: string;
+    authorized: boolean;
+    mode: string;
+  };
   assert.equal(new URL(input.url).hostname, 'pr-9.preview.example.com');
   assert.equal(input.authorized, true);
+  assert.equal(input.mode, 'smoke');
 });
 
 test('github hook: host mismatch without installation still records skip', async () => {

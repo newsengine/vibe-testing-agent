@@ -32,7 +32,7 @@ export interface EnqueueScanInput {
 function shouldRunInline(mode: ScanMode, runInline?: boolean): boolean {
   if (runInline === true) return true;
   if (runInline === false) return false;
-  if (mode === 'lite') return true;
+  if (mode === 'lite' || mode === 'smoke') return true;
   // Full scans need OVH agent when secret is configured (production Workers)
   if (config.scanAgentSecret) return false;
   // Local dev without agent: run inline (monorepo probe or worker scan)

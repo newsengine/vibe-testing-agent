@@ -228,6 +228,34 @@ jobs:
       rate_limit_path: /api/public/health  # optional — burst-test for a 429
       fail_on: high                         # high | medium | any
       allow_report_only_csp: true           # while CSP is still Report-Only
+      profile: full                         # smoke | full (default full)
+```
+
+PR smoke (fast passive subset, target < ~60s) plus a nightly full crawl:
+
+```yaml
+# .github/workflows/security.yml
+name: security
+on:
+  pull_request:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+jobs:
+  pr-smoke:
+    if: github.event_name == 'pull_request'
+    uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
+    with:
+      url: ${{ vars.PREVIEW_URL || 'https://your-preview.example.com' }}
+      profile: smoke
+      fail_on: high
+  nightly-full:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
+    with:
+      url: https://your-deploy.example.com
+      profile: full
+      fail_on: high
 ```
 
 ### Findings in the GitHub Security tab (SARIF)

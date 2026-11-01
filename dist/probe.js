@@ -13,7 +13,8 @@ import { pluginChecks } from './plugins.js';
 import { appStyleChecks } from './appstyle.js';
 import { atlasChecks } from './atlas.js';
 import { DEFAULT_RETRIES, decideRetry, inconclusiveFinding } from './retry.js';
-import { fetchWithRetry, runWithRetryBudget } from './core.js';
+import { fetchWithRetry, runWithRetryBudget, safeFetch } from './core.js';
+import { applyProfile, SMOKE_PATHS } from './profile.js';
 const RUNNERS = {
     security: securityChecks,
     secrets: secretChecks,
@@ -71,10 +72,44 @@ function stampRetries(findings) {
     return findings.map((f) => (f.retries == null ? { ...f, retries: 0 } : f));
 }
 /** Run the comprehensive scan. Returns every finding across the selected categories. */
+async function smokePathFindings(ctx) {
+    const paths = ctx.opts.smokePaths ?? SMOKE_PATHS;
+    const out = [];
+    const seen = new Set();
+    for (const path of paths) {
+        const p = path.startsWith('/') ? path : `/${path}`;
+        if (seen.has(p))
+            continue;
+        seen.add(p);
+        const res = await safeFetch(ctx.origin + p, { redirect: 'follow', headers: ctx.opts.extraHeaders }, ctx.opts.timeoutMs);
+        const id = `smoke.path${p}`;
+        if (!res) {
+            out.push(inconclusiveFinding({
+                id,
+                category: 'reliability',
+                title: `Smoke path ${p} inconclusive`,
+                detail: `GET ${p} failed after retries`,
+            }));
+            continue;
+        }
+        const ok = res.status < 500;
+        out.push({
+            category: 'reliability',
+            id,
+            title: ok ? `Smoke path ${p} reachable` : `Smoke path ${p} returned ${res.status}`,
+            severity: ok ? 'info' : 'medium',
+            pass: ok,
+            detail: `GET ${p} → HTTP ${res.status}`,
+            retries: 0,
+        });
+    }
+    return out;
+}
 export async function probe(baseUrl, opts = {}) {
-    const retries = opts.retries ?? DEFAULT_RETRIES;
+    const resolved = applyProfile(opts.profile ?? 'full', opts);
+    const retries = resolved.retries ?? DEFAULT_RETRIES;
     return runWithRetryBudget(retries, async () => {
-        const ctx = await buildContext(baseUrl, opts);
+        const ctx = await buildContext(baseUrl, resolved);
         if (ctx.homepageTransient) {
             const kind = ctx.res
                 ? `HTTP ${ctx.res.status}`
@@ -90,11 +125,14 @@ export async function probe(baseUrl, opts = {}) {
                 }),
             ];
         }
-        const selected = (opts.only ?? ALL_CATEGORIES).filter((c) => !(opts.skip ?? []).includes(c));
+        const selected = (resolved.only ?? ALL_CATEGORIES).filter((c) => !(resolved.skip ?? []).includes(c));
         const results = await Promise.all(selected.map((c) => RUNNERS[c](ctx).catch((e) => [
             { category: c, id: `${c}.error`, title: `${c} check crashed`, severity: 'info', pass: true, detail: String(e?.message || e), retries: 0 },
         ])));
-        return stampRetries(results.flat());
+        const findings = results.flat();
+        if (resolved.profile === 'smoke')
+            findings.push(...await smokePathFindings(ctx));
+        return stampRetries(findings);
     });
 }
 /** Alias — reads better for the full-app use case. */

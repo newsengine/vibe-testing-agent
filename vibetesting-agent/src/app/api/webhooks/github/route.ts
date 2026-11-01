@@ -7,6 +7,7 @@ import { config } from '@/lib/config';
 import { json, errorResponse } from '@/lib/http';
 import { resolveWebhookTarget, webhookHostMismatchSummary } from '@/lib/webhook-target';
 import { previewPatternStrings } from '@/lib/preview-hosts';
+import { webhookScanMode } from '@/lib/schedule-policy';
 
 export async function POST(req: Request) {
   try {
@@ -70,11 +71,16 @@ export async function POST(req: Request) {
           continue;
         }
 
+        const mode = webhookScanMode({
+          policy: project.policy,
+          projectHostname: project.hostname,
+          targetHostname: target.hostname,
+        });
         const scan = await enqueueScan({
           user,
           project,
           url: target.url,
-          mode: project.policy === 'launch' ? 'crawl' : 'full',
+          mode,
           trigger: 'github',
           authorized: project.verified,
           meta: { sha: deployment?.sha, repo, installationId: installation?.id },

@@ -93,7 +93,8 @@ export default function DocsPage() {
             <li>Create a project with your production URL.</li>
             <li>Prove ownership via domain email (inbox click) or DNS TXT.</li>
             <li>Upgrade for cadence (weekly / daily / every commit).</li>
-            <li>POST the deploy webhook after every successful release.</li>
+            <li>POST the deploy webhook after every successful release (preview URLs run a smoke scan).</li>
+            <li>Paid cadence plans also get a scheduled nightly full crawl of the verified production host.</li>
             <li>Review score, baseline diffs, and agent fix packs.</li>
           </ol>
         </section>

@@ -7,10 +7,22 @@
 import { eq } from 'drizzle-orm';
 import { getDb, schema } from './lib/db';
 import { processScan } from './lib/scans';
+import { enqueueDueScheduledCrawls } from './lib/schedule';
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS || 2000);
 
+let lastNightly = 0;
+
 async function tick() {
+  if (Date.now() - lastNightly > 60 * 60 * 1000) {
+    lastNightly = Date.now();
+    try {
+      const scheduled = await enqueueDueScheduledCrawls();
+      if (scheduled.enqueued) console.log('[worker] nightly cadence', scheduled);
+    } catch (err) {
+      console.error('[worker] nightly cadence error', err);
+    }
+  }
   const db = await getDb();
   const queued = await db
     .select()

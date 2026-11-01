@@ -125,6 +125,9 @@ function runProbe(url, mode, authHeaders) {
     if (mode === 'fast') {
       args.push('--only', 'secrets,exposure,security,dns,framework,host,components');
     }
+    if (mode === 'smoke') {
+      args.push('--profile', 'smoke');
+    }
     // Authenticated same-origin headers from project (test session)
     if (authHeaders && typeof authHeaders === 'object') {
       if (authHeaders.cookie) {

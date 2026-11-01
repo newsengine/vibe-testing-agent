@@ -8,6 +8,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { audit } from '@/lib/audit';
 import { resolveWebhookTarget } from '@/lib/webhook-target';
 import { previewPatternStrings } from '@/lib/preview-hosts';
+import { webhookScanMode } from '@/lib/schedule-policy';
 
 /**
  * Generic deploy webhook — call after every software update:
@@ -67,13 +68,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ secret: string
       return json({ error: target.error, code: target.code }, 400);
     }
 
-    const mode = project.policy === 'launch' ? 'crawl' : project.policy === 'client' ? 'full' : 'full';
+    const mode = webhookScanMode({
+      policy: project.policy,
+      projectHostname: project.hostname,
+      targetHostname: target.hostname,
+    });
 
     const scan = await enqueueScan({
       user,
       project,
       url: target.url,
-      mode: mode as 'full' | 'crawl',
+      mode,
       trigger: 'deploy',
       authorized: project.verified,
       meta: body,

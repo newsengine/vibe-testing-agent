@@ -105,7 +105,7 @@ export const scans = sqliteTable('scans', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
   url: text('url').notNull(),
-  mode: text('mode', { enum: ['lite', 'fast', 'full', 'crawl'] }).notNull().default('fast'),
+  mode: text('mode', { enum: ['lite', 'smoke', 'fast', 'full', 'crawl'] }).notNull().default('fast'),
   trigger: text('trigger', {
     enum: ['manual', 'api', 'mcp', 'deploy', 'github', 'schedule', 'rescan'],
   }).notNull().default('manual'),

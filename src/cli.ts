@@ -42,6 +42,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { probe, summarize, normalizeUrl, discoverPages, ALL_CATEGORIES, type Category, type Finding, type Severity, type ScanOptions } from './probe.js';
 import { DEFAULT_RETRIES, gateableFindings } from './retry.js';
+import { parseProfile } from './profile.js';
 import { runNpmAudit, failsAtLevel } from './audit.js';
 import { toSarif } from './sarif.js';
 import { buildBaseline, applyBaseline, type Baseline } from './baseline.js';
@@ -523,6 +524,16 @@ async function mainScan() {
         process.exit(2);
       }
       return n;
+    })(),
+    profile: (() => {
+      const raw = arg('--profile') ?? config.profile;
+      if (raw === undefined) return 'full';
+      const parsed = parseProfile(raw);
+      if (!parsed) {
+        console.error(`--profile must be smoke|full (got "${raw}")`);
+        process.exit(2);
+      }
+      return parsed;
     })(),
     pluginsDir: arg('--plugins') ?? config.pluginsDir,
     extraHeaders: mergedHeaders,

@@ -322,6 +322,7 @@ export function RunScanForm({
           Mode
         </label>
         <select id="scan-mode" name="mode" className="input" defaultValue="full">
+          <option value="smoke">Smoke (passive subset, ~60s)</option>
           <option value="fast">Fast (secrets, exposure, security, DNS…)</option>
           <option value="full">Full black-box</option>
           <option value="crawl">Crawl (paid quota)</option>

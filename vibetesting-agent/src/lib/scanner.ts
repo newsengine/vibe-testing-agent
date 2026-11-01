@@ -495,13 +495,16 @@ async function tryMonorepoProbe(
     if (!existsSync(entry)) return null;
     const mod = await import(pathToFileURL(entry).href);
     const only =
-      mode === 'fast' || mode === 'lite'
-        ? (['secrets', 'exposure', 'security', 'dns', 'framework', 'host'] as const)
-        : undefined;
+      mode === 'smoke'
+        ? (['secrets', 'exposure', 'security'] as const)
+        : mode === 'fast' || mode === 'lite'
+          ? (['secrets', 'exposure', 'security', 'dns', 'framework', 'host'] as const)
+          : undefined;
     return (await mod.probe(url, {
       only: only as never,
-      timeoutMs: 15000,
-      maxCrawl: mode === 'crawl' ? 40 : 15,
+      profile: mode === 'smoke' ? 'smoke' : 'full',
+      timeoutMs: mode === 'smoke' ? 8000 : 15000,
+      maxCrawl: mode === 'crawl' ? 40 : mode === 'smoke' ? 8 : 15,
       extraHeaders,
       retries: DEFAULT_RETRIES,
     })) as Finding[];
