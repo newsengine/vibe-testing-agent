@@ -2,7 +2,7 @@
   "schema_version": "v1",
   "name_for_human": "VibeTesting Agent",
   "name_for_model": "vibetesting_agent",
-  "description_for_human": "Black-box security scans for vibe-coded apps. Free lite scan; paid continuous full scans after ownership verification.",
+  "description_for_human": "Open-source black-box security hygiene scanner (beta, advisory findings, no warranty or support).",
   "description_for_model": "VibeTesting Agent runs black-box security probes (headers, TLS, CSP, DNS, secrets, exposure, SEO, a11y) against a public URL. Use the lite scan for a quick public check, or authenticated API/MCP for full owned-project scans. Always require the user to confirm they own or have permission to scan the target.",
   "auth": {
     "type": "service_http",
@@ -14,6 +14,5 @@
     "is_user_authenticated": false
   },
   "logo_url": "https://vibetestingagent.com/favicon.ico",
-  "contact_email": "security@vibetestingagent.com",
   "legal_info_url": "https://vibetestingagent.com/legal/terms"
 }

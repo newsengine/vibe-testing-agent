@@ -59,10 +59,16 @@ npx vibetesting-agent init https://your-app.example.com --name my-app
 > don't own may be illegal** (e.g. the US Computer Fraud and Abuse Act, the UK Computer Misuse Act, and
 > equivalents elsewhere). You are solely responsible for having authorization for every target. Active
 > recon is additionally gated behind an explicit `recon --yes-i-am-authorized` flag.
+
+> ### ⚠️ Beta: no warranty, no support
+> vibetesting-agent is **beta software, provided "AS IS", without warranty of any kind and without support**
+> (see [`LICENSE`](LICENSE)). Run it as a **review aid**: its findings and alerts are **advisory only**.
+> Consider each warning, check it yourself, and decide whether it applies to you. **You are responsible for
+> your own security decisions**, including whether to implement or not implement anything it reports.
+> It is a hygiene scanner and a first line of defense, **not a substitute for a professional penetration test
+> or security audit**, and a clean scan does not mean an application is secure.
 >
-> This software is provided **"AS IS", without warranty of any kind** (see [`LICENSE`](LICENSE)). It is a
-> hygiene scanner and a **first line of defense — not a substitute for a professional penetration test or
-> security audit**. A clean scan does not mean an application is secure.
+> There is no support channel. If something needs fixing, [open a GitHub issue](https://github.com/newsengine/vibe-testing-agent/issues).
 
 Built for vibe coders shipping with AI: you don't need to know what to look for — the scanner does, and
 every failing finding comes with a one-line **fix**. Exits non-zero so it doubles as a CI gate.
