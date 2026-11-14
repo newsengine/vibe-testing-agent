@@ -3,6 +3,7 @@
 
 import type { Finding, Severity } from './types.js';
 import { refsFor, securityGrade, tlsGrade, OWASP_TOP10_NAMES } from './compliance.js';
+import { PINNED_SPEC } from './pin.js';
 
 const SEV_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2, info: 3 };
 const SEV_ICON: Record<Severity, string> = { high: '🟥', medium: '🟧', low: '🟨', info: 'ℹ️' };
@@ -81,7 +82,7 @@ function whereHint(f: Finding): string {
 
 function verifyHint(url: string, f: Finding): string {
   return [
-    `npx github:newsengine/vibetesting-agent ${url} --only ${f.category}`,
+    `npx --yes ${PINNED_SPEC} ${url} --only ${f.category}`,
     `Confirm finding \`${f.id}\` no longer fails.`,
   ].join('; ');
 }
@@ -147,7 +148,7 @@ export function renderAgentReport(findings: Finding[], opts: AgentReportOptions)
   lines.push('1. Work **top-down** (P1 first). Do not invent secrets or weaken auth to make a check pass.');
   lines.push('2. Prefer reversible, scoped fixes (route-level headers over global if the app has public embeds).');
   lines.push('3. After each fix, re-run the verify command for that finding.');
-  lines.push(`4. Full rescan: \`npx github:newsengine/vibetesting-agent ${opts.url} --agent-report security-review.md\``);
+  lines.push(`4. Full rescan: \`npx --yes ${PINNED_SPEC} ${opts.url} --agent-report security-review.md\``);
   lines.push('5. Optional: implement Gherkin scenarios under `features/security/` and wire them to your test runner.');
   lines.push('');
 

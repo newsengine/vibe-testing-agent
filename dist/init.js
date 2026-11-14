@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { renderAgentReport } from './agent-report.js';
 import { renderGherkinFeature, renderGherkinStepStub } from './gherkin.js';
 import { buildBaseline } from './baseline.js';
+import { PINNED_SPEC } from './pin.js';
 function writeIfMissing(path, content, force, written, skipped) {
     if (!force && existsSync(path)) {
         skipped.push(path);
@@ -23,7 +24,7 @@ export function initRepo(opts) {
     // Agent report
     const report = findings.length
         ? renderAgentReport(findings, { url: opts.url, projectName: name })
-        : `# ${name} — security review\n\nRun: \`npx github:newsengine/vibetesting-agent ${opts.url} --agent-report security-review.md\`\n`;
+        : `# ${name} — security review\n\nRun: \`npx --yes ${PINNED_SPEC} ${opts.url} --agent-report security-review.md\`\n`;
     writeIfMissing(join(root, 'security-review.md'), report, force, written, skipped);
     // Gherkin
     const feature = renderGherkinFeature(findings, { url: opts.url, projectName: name, tags: true });
@@ -43,7 +44,7 @@ export function initRepo(opts) {
     writeIfMissing(join(root, 'vibetesting-agent.config.json'), JSON.stringify(config, null, 2) + '\n', force, written, skipped);
     // SECURITY.md pointer
     writeIfMissing(join(root, 'SECURITY.md'), `# Security\n\nThis repo uses [vibetesting-agent](https://github.com/newsengine/vibetesting-agent) for deploy hygiene.\n\n` +
-        `- Run review: \`npx github:newsengine/vibetesting-agent ${opts.url} --agent-report security-review.md --gherkin features/security/hygiene.feature\`\n` +
+        `- Run review: \`npx --yes ${PINNED_SPEC} ${opts.url} --agent-report security-review.md --gherkin features/security/hygiene.feature\`\n` +
         `- Baseline: \`vibetesting-agent-baseline.json\` (CI fails only on new highs)\n` +
         `- Gherkin: \`features/security/\`\n` +
         `- Authorized testing only.\n`, force, written, skipped);
@@ -53,20 +54,24 @@ on:
   pull_request:
   workflow_dispatch:
   # Also trigger after deploy via repository_dispatch or your host webhook → VibeTesting Agent
+permissions:
+  contents: read
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: vibetesting-agent
+        env:
+          TARGET_URL: ${JSON.stringify(opts.url)}
         run: |
-          npx --yes github:newsengine/vibetesting-agent "${opts.url}" \\
+          npx --yes ${PINNED_SPEC} "$TARGET_URL" \\
             --fail-on high \\
             --baseline vibetesting-agent-baseline.json \\
             --agent-report security-review.md \\
             --gherkin features/security/hygiene.feature || true
           # Gate separately so artifacts always upload
-          npx --yes github:newsengine/vibetesting-agent "${opts.url}" --fail-on high --baseline vibetesting-agent-baseline.json
+          npx --yes ${PINNED_SPEC} "$TARGET_URL" --fail-on high --baseline vibetesting-agent-baseline.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

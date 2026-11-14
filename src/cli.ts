@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // src/cli.ts
-// `npx github:newsengine/vibetesting-agent <url> [options]`
+// `npx vibetesting-agent <url> [options]`
 // Point it at any deployed app and it reports everything wrong: leaked secrets, exposed files, broken
 // links, missing security headers, SEO/a11y/performance gaps. Exits non-zero so it can gate CI.
 //
@@ -57,6 +57,7 @@ import { activeInjectionScan } from './inject.js';
 import { withCfBypassHeaders } from './cf-bypass-headers.js';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from './argv.js';
+import { PINNED_SPEC } from './pin.js';
 
 const VERSION = (() => {
   try { return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version as string; }
@@ -431,7 +432,7 @@ async function runInit() {
   for (const p of result.written) console.log(`  wrote ${p}`);
   for (const p of result.skipped) console.log(`  skip  ${p} (exists; use --force)`);
   console.log(`\nNext: open security-review.md · wire CI · re-run after deploys with:`);
-  console.log(`  npx github:newsengine/vibetesting-agent review ${url}`);
+  console.log(`  npx --yes ${PINNED_SPEC} review ${url}`);
   process.exit(0);
 }
 
@@ -477,7 +478,7 @@ async function mainScan() {
 
   const rawUrl = process.argv[2];
   if (!rawUrl || rawUrl.startsWith('-')) {
-    console.error('usage:\n  npx github:newsengine/vibetesting-agent <url> [--agent-report security-review.md] [--gherkin features/security/hygiene.feature] [--only ...] [--fail-on high|medium|any] [--report f.html] [--json]\n  npx github:newsengine/vibetesting-agent review <url>     # security-review: scan + agent report + gherkin\n  npx github:newsengine/vibetesting-agent init <url>       # scaffold suite into a new repo\n  npx github:newsengine/vibetesting-agent audit [--prod] [--level high]');
+    console.error('usage:\n  npx vibetesting-agent <url> [--agent-report security-review.md] [--gherkin features/security/hygiene.feature] [--only ...] [--fail-on high|medium|any] [--report f.html] [--json]\n  npx vibetesting-agent review <url>     # security-review: scan + agent report + gherkin\n  npx vibetesting-agent init <url>       # scaffold suite into a new repo\n  npx vibetesting-agent audit [--prod] [--level high]');
     process.exit(2);
   }
   const url = normalizeUrl(rawUrl); // accept bare domains (example.com -> https://example.com)

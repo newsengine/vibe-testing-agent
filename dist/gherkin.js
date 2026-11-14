@@ -1,5 +1,6 @@
 // Generate Gherkin (.feature) scenarios from vibetesting-agent findings so each new repo gets
 // executable security acceptance criteria. Default style is BDD that maps 1:1 to finding ids.
+import { PINNED_SPEC } from './pin.js';
 const SEV_RANK = { high: 0, medium: 1, low: 2, info: 3 };
 function slug(id) {
     return id.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -113,7 +114,7 @@ function runProbe(args = []) {
   // Prefer npx when ANAL_PROBE_CLI unset
   const out = process.env.ANAL_PROBE_CLI
     ? r.stdout
-    : spawnSync('npx', ['--yes', 'github:newsengine/vibetesting-agent', targetUrl, '--json', ...args], {
+    : spawnSync('npx', ['--yes', '${PINNED_SPEC}', targetUrl, '--json', ...args], {
         encoding: 'utf8',
         env: process.env,
         shell: process.platform === 'win32',

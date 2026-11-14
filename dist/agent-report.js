@@ -1,6 +1,7 @@
 // Agent-facing security review report — same shape as the Sparkle "findings-for-agent" markdown
 // and Claude Code security artifacts: ranked P1/P2/… items with standards, problem, where, fix, verify.
 import { refsFor, securityGrade, tlsGrade, OWASP_TOP10_NAMES } from './compliance.js';
+import { PINNED_SPEC } from './pin.js';
 const SEV_RANK = { high: 0, medium: 1, low: 2, info: 3 };
 const SEV_ICON = { high: '🟥', medium: '🟧', low: '🟨', info: 'ℹ️' };
 const SEV_LABEL = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW', info: 'INFO' };
@@ -70,7 +71,7 @@ function whereHint(f) {
 }
 function verifyHint(url, f) {
     return [
-        `npx github:newsengine/vibetesting-agent ${url} --only ${f.category}`,
+        `npx --yes ${PINNED_SPEC} ${url} --only ${f.category}`,
         `Confirm finding \`${f.id}\` no longer fails.`,
     ].join('; ');
 }
@@ -132,7 +133,7 @@ export function renderAgentReport(findings, opts) {
     lines.push('1. Work **top-down** (P1 first). Do not invent secrets or weaken auth to make a check pass.');
     lines.push('2. Prefer reversible, scoped fixes (route-level headers over global if the app has public embeds).');
     lines.push('3. After each fix, re-run the verify command for that finding.');
-    lines.push(`4. Full rescan: \`npx github:newsengine/vibetesting-agent ${opts.url} --agent-report security-review.md\``);
+    lines.push(`4. Full rescan: \`npx --yes ${PINNED_SPEC} ${opts.url} --agent-report security-review.md\``);
     lines.push('5. Optional: implement Gherkin scenarios under `features/security/` and wire them to your test runner.');
     lines.push('');
     if (opts.includePassed !== false && passed.length) {

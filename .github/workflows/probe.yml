@@ -31,6 +31,9 @@ on:
       CF_ACCESS_CLIENT_ID: { required: false }
       CF_ACCESS_CLIENT_SECRET: { required: false }
 
+# The scan needs no repo access; the token gets no scopes.
+permissions: {}
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -43,11 +46,19 @@ jobs:
           CF_SMOKE_KEY: ${{ secrets.CF_SMOKE_KEY }}
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          # Inputs reach the shell only as env vars (never interpolated into the script).
+          IN_URL: ${{ inputs.url }}
+          IN_FAIL_ON: ${{ inputs.fail_on }}
+          IN_ONLY: ${{ inputs.only }}
+          IN_SKIP: ${{ inputs.skip }}
+          IN_CORS_PATH: ${{ inputs.cors_path }}
+          IN_RATE_LIMIT_PATH: ${{ inputs.rate_limit_path }}
+          IN_ALLOW_REPORT_ONLY_CSP: ${{ inputs.allow_report_only_csp }}
         run: |
-          ARGS=("${{ inputs.url }}" --fail-on "${{ inputs.fail_on }}")
-          if [ -n "${{ inputs.only }}" ]; then ARGS+=(--only "${{ inputs.only }}"); fi
-          if [ -n "${{ inputs.skip }}" ]; then ARGS+=(--skip "${{ inputs.skip }}"); fi
-          if [ -n "${{ inputs.cors_path }}" ]; then ARGS+=(--cors-path "${{ inputs.cors_path }}"); fi
-          if [ -n "${{ inputs.rate_limit_path }}" ]; then ARGS+=(--rate-limit-path "${{ inputs.rate_limit_path }}"); fi
-          if [ "${{ inputs.allow_report_only_csp }}" = "true" ]; then ARGS+=(--allow-report-only-csp); fi
-          npx --yes vibetesting-agent "${ARGS[@]}"
+          ARGS=("$IN_URL" --fail-on "$IN_FAIL_ON")
+          if [ -n "$IN_ONLY" ]; then ARGS+=(--only "$IN_ONLY"); fi
+          if [ -n "$IN_SKIP" ]; then ARGS+=(--skip "$IN_SKIP"); fi
+          if [ -n "$IN_CORS_PATH" ]; then ARGS+=(--cors-path "$IN_CORS_PATH"); fi
+          if [ -n "$IN_RATE_LIMIT_PATH" ]; then ARGS+=(--rate-limit-path "$IN_RATE_LIMIT_PATH"); fi
+          if [ "$IN_ALLOW_REPORT_ONLY_CSP" = "true" ]; then ARGS+=(--allow-report-only-csp); fi
+          npx --yes vibetesting-agent@0.6.1 "${ARGS[@]}"
