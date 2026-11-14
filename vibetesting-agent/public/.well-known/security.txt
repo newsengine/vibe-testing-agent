@@ -1,5 +1,4 @@
 Contact: https://github.com/newsengine/vibe-testing-agent/security/advisories/new
-Contact: mailto:security@vibetestingagent.com
 Expires: 2027-08-01T00:00:00.000Z
 Preferred-Languages: en
 Canonical: https://vibetestingagent.com/.well-known/security.txt

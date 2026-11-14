@@ -166,6 +166,25 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section id="notice" className="mx-auto max-w-6xl px-4 pb-16 sm:px-5">
+        <div className="panel border-l-4 border-[var(--lime)] p-6 sm:p-8">
+          <h2 className="mono text-lg font-bold">Beta: no warranty, no support</h2>
+          <p className="mt-3 text-sm text-[var(--mut)]">
+            vibetesting-agent is beta software, provided as is, without warranty of any kind and without
+            support. Run it as a review aid: its findings and alerts are advisory only. Consider each warning,
+            check it yourself and decide whether it applies to you. You are responsible for your own security
+            decisions, including whether to implement or not implement anything it reports.
+          </p>
+          <p className="mt-3 text-sm text-[var(--mut)]">
+            There is no support channel. If something needs fixing,{' '}
+            <a href={OSS_LINKS.issues} className="text-[var(--ink)] hover:underline" target="_blank" rel="noreferrer">
+              open a GitHub issue
+            </a>
+            .
+          </p>
+        </div>
+      </section>
+
       <section id="install" className="mx-auto max-w-6xl scroll-mt-16 px-4 pb-24 sm:px-5">
         <SectionHead kicker="Install" title="Three ways to run it">
           Requires Node.js 20 or newer. Only scan systems you own or have written permission to test.
@@ -335,7 +354,7 @@ export default function HomePage() {
                 <a href={OSS_LINKS.license} className="text-[var(--ink)] hover:underline" target="_blank" rel="noreferrer">
                   Apache-2.0
                 </a>
-                . Provided as is, without warranty.
+                . Beta, provided as is, without warranty or support. Findings are advisory.
               </li>
               <li>Only test systems you own or have explicit written permission to test.</li>
               <li>Active recon is gated behind an explicit authorization flag.</li>

@@ -7,12 +7,12 @@ vulnerability **in vibetesting-agent** (e.g. a way to make it exfiltrate data, a
 how it handles a target URL, an SSRF via a redirect, or a way its output leaks secrets it scanned):
 
 - **Do not** open a public issue.
-- Use **GitHub → Security → "Report a vulnerability"** (private advisory) on this repository, or
-  email the maintainers at the address in the repo profile.
+- Use **GitHub → Security → "Report a vulnerability"** (private advisory) on this repository.
 - Include a proof-of-concept and the version (`vibetesting-agent --version`).
 
-We aim to acknowledge within **72 hours** and to ship a fix or mitigation for confirmed issues
-promptly. We'll credit you in the release notes unless you prefer to stay anonymous.
+This is a beta project with no support commitment. Confirmed issues are fixed on a best-effort basis,
+and we'll credit you in the release notes unless you prefer to stay anonymous. For anything else, open a
+[GitHub issue](https://github.com/newsengine/vibe-testing-agent/issues).
 
 ## Reporting a vulnerability you found in *your own* site with vibetesting-agent
 

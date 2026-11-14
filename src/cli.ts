@@ -267,6 +267,7 @@ async function runBrowse() {
       if (!fnd.pass && fnd.fix) console.log(`        ↳ fix: ${fnd.fix}`);
     }
     console.log(`\n${sum.passed} passed, ${sum.failed} failed  (🟥 ${sum.failHigh} · 🟧 ${sum.failMedium} · 🟨 ${sum.failLow})\n`);
+    console.log('Beta, no warranty or support. Findings are advisory: check each one and decide whether to act. You are responsible for your own security decisions.\n');
   }
   process.exit(findings.some((fnd) => !fnd.pass && fnd.severity === 'high') ? 1 : 0);
 }

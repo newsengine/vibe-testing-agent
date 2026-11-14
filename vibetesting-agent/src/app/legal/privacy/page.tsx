@@ -27,7 +27,7 @@ export default function PrivacyPage() {
           delivery. We do not sell personal data.
         </p>
         <p>
-          Contact: <a className="text-[var(--lime)]" href={`mailto:${COMPANY.supportEmail}`}>{COMPANY.supportEmail}</a>
+          Questions: open a <a className="text-[var(--lime)]" href={COMPANY.issuesUrl}>GitHub issue</a>.
         </p>
         <p className="text-xs opacity-70">{providedByLine()}</p>
       </div>

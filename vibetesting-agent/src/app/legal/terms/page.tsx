@@ -49,7 +49,8 @@ export default function TermsPage() {
       </p>
       <h2>6. Contact</h2>
       <p>
-        Support: <a href={`mailto:${COMPANY.supportEmail}`}>{COMPANY.supportEmail}</a>
+        The software is a beta provided as is, without warranty or support. To report a problem, open a{' '}
+        <a href={COMPANY.issuesUrl}>GitHub issue</a>.
       </p>
       <p className="text-xs opacity-70">{providedByLine()}</p>
     </LegalLayout>
