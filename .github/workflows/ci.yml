@@ -46,5 +46,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/consumer" && cd "$RUNNER_TEMP/consumer"
           npm init -y >/dev/null
           npm install "$tgz"
-          npx vta --help
+          # `--help` prints usage and exits 2, so check the output instead of the exit code.
+          npx vta --help 2>&1 | tee help.txt || true
+          grep -q 'usage:' help.txt
           node -e "import('$(node -p 'require(process.argv[1]).name' "$GITHUB_WORKSPACE/package.json")').then(m => { if (!Object.keys(m).length) process.exit(1); console.log('exports:', Object.keys(m).length) })"
