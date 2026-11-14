@@ -16,6 +16,17 @@ const ALLOWED_METHODS = ['GET', 'HEAD'];
 export const MAX_TEMPLATES = 100;
 const MAX_BODY_BYTES = 2_000_000;
 // ───────────────────────────── validation (pure) ─────────────────────────────
+/**
+ * A plugin path must stay on the scan origin, since the request carries the scan's auth headers.
+ * "//host/x" and "/\host/x" are protocol-relative, and URL parsing strips tab/newline, so "/<TAB>/host"
+ * would collapse to "//host" too.
+ */
+export function isSameOriginPath(p) {
+    if (!p.startsWith('/') || p.startsWith('//') || p.startsWith('/\\'))
+        return false;
+    // eslint-disable-next-line no-control-regex
+    return !/[\s\u0000-\u001f\u007f]/.test(p);
+}
 const isStr = (v) => typeof v === 'string';
 const nonEmpty = (v) => isStr(v) && v.trim().length > 0;
 /** Validate an untrusted parsed-JSON object against the template schema. Never throws. */
@@ -40,6 +51,9 @@ export function validateTemplate(obj) {
     else {
         if (!nonEmpty(req.path) || !req.path.startsWith('/')) {
             errors.push('`request.path` is required and must start with "/"');
+        }
+        else if (!isSameOriginPath(req.path)) {
+            errors.push('`request.path` must be a same-origin path (no "//", "/\\", whitespace or control characters)');
         }
         if (req.method !== undefined && (!isStr(req.method) || !ALLOWED_METHODS.includes(req.method.toUpperCase()))) {
             errors.push('`request.method` must be GET or HEAD (only non-destructive methods are allowed)');
@@ -232,7 +246,12 @@ export async function pluginChecks(ctx) {
     }
     for (const { template } of loaded) {
         const method = (template.request.method || 'GET').toUpperCase();
-        const url = new URL(template.request.path, ctx.origin).toString();
+        const target = new URL(template.request.path, ctx.origin);
+        if (target.origin !== ctx.origin) {
+            out.push(f(`plugins.invalid.${template.id}`, `Plugin template skipped: ${template.id}`, 'info', true, `request.path resolves off the scan origin (${target.origin})`, 'Use a same-origin path such as "/admin".'));
+            continue;
+        }
+        const url = target.toString();
         // Same-origin request: safe to carry the scan's auth headers, plus any the template specifies.
         const headers = { ...(ctx.opts.extraHeaders || {}), ...(template.request.headers || {}) };
         const res = await safeFetch(url, { method, headers }, ctx.opts.timeoutMs);

@@ -8,6 +8,7 @@ import {
   securityChecks, secretChecks, exposureChecks, reliabilityChecks, seoChecks, a11yChecks, performanceChecks,
 } from './checks.js';
 import { dnsChecks } from './dns.js';
+import { fetchFollowingRedirects } from './core.js';
 import { agentChecks } from './agent.js';
 import { frameworkChecks } from './framework.js';
 import { componentChecks } from './components.js';
@@ -56,7 +57,7 @@ async function buildContext(baseUrl: string, opts: ScanOptions): Promise<ScanCon
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? 10_000);
   try {
-    res = await fetch(url.origin, { redirect: 'follow', signal: ac.signal, headers: opts.extraHeaders });
+    res = await fetchFollowingRedirects(url.origin, { signal: ac.signal, headers: opts.extraHeaders });
     headers = res.headers;
     if ((res.headers.get('content-type') || '').includes('html')) {
       html = (await res.text()).slice(0, 5_000_000);

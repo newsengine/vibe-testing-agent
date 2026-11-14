@@ -12,6 +12,23 @@ const XSS_IN = `"><${MARK}>`;
 const SQLI_IN = `apx' OR '1'='1`;
 const SQL_ERR = /SQL syntax|sqlite3?|SQLSTATE|PG::|psql:|ORA-\d{3,}|mysqli?_|syntax error at or near|unterminated quoted string|column .* does not exist/i;
 const f = (id, title, severity, detail, fix, category = 'reliability') => ({ category, id, title, severity, pass: false, detail, fix });
+/**
+ * Turn a raw `Cookie:` header ("a=1; b=2") into Playwright cookies bound to `origin` via `url`, so the
+ * browser only sends them back to that host (host-only, Secure when the origin is https).
+ */
+export function cookieHeaderToCookies(raw, origin) {
+    const url = new URL(origin).origin + '/';
+    const out = [];
+    for (const part of raw.split(';')) {
+        const eq = part.indexOf('=');
+        if (eq <= 0)
+            continue;
+        const name = part.slice(0, eq).trim();
+        if (name)
+            out.push({ name, value: part.slice(eq + 1).trim(), url });
+    }
+    return out;
+}
 export async function crawlAudit(startUrl, opts = {}) {
     const origin = new URL(startUrl).origin;
     const maxPages = opts.maxPages ?? 30;
@@ -57,7 +74,11 @@ export async function crawlAudit(startUrl, opts = {}) {
         }
         catch { } };
     }
-    const ctx = browser.contexts()[0] || await browser.newContext(opts.cookie ? { extraHTTPHeaders: { cookie: opts.cookie } } : {});
+    const ctx = browser.contexts()[0] || await browser.newContext();
+    // Scope --cookie to the target origin. extraHTTPHeaders would send it to every third-party origin
+    // the page loads (CDNs, analytics, embeds).
+    if (opts.cookie)
+        await ctx.addCookies(cookieHeaderToCookies(opts.cookie, origin));
     const page = await ctx.newPage();
     const seen = new Set();
     const queue = [];

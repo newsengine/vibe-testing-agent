@@ -25,6 +25,13 @@ export declare function gradeTlsCipher(cipher: string | null): {
     detail: string;
 };
 export declare const DEFAULT_TIMEOUT_MS = 10000;
+/**
+ * Follow redirects by hand instead of letting fetch() do it, so caller headers (--cookie, --header,
+ * CF bypass keys) stay on the origin they were meant for. Once a hop changes origin every caller header
+ * is dropped for the rest of the chain, and an https -> http downgrade is never followed (the 3xx is
+ * returned as-is). `doFetch` is injectable for tests.
+ */
+export declare function fetchFollowingRedirects(url: string, init?: RequestInit, doFetch?: (u: string, i: RequestInit) => Promise<Response>): Promise<Response>;
 export declare function safeFetch(url: string, init?: RequestInit, timeoutMs?: number): Promise<Response | null>;
 /**
  * Fetch text with a hard timeout AND a streaming byte cap: we stop reading once maxBytes have arrived,

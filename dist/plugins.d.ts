@@ -43,6 +43,12 @@ export interface ResponseView {
     body: string;
 }
 export declare const MAX_TEMPLATES = 100;
+/**
+ * A plugin path must stay on the scan origin, since the request carries the scan's auth headers.
+ * "//host/x" and "/\host/x" are protocol-relative, and URL parsing strips tab/newline, so "/<TAB>/host"
+ * would collapse to "//host" too.
+ */
+export declare function isSameOriginPath(p: string): boolean;
 /** Validate an untrusted parsed-JSON object against the template schema. Never throws. */
 export declare function validateTemplate(obj: unknown): {
     ok: boolean;
