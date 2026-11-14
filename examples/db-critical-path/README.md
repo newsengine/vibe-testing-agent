@@ -36,6 +36,9 @@ node --experimental-strip-types src/cli.ts db-critical https://dynamicbusiness.c
 node --experimental-strip-types src/cli.ts db-critical https://beta.dynamicbusiness.com --json
 ```
 
+The suite sends staff session tokens to the target, so it only runs against `dynamicbusiness.com`
+and its subdomains. For a local or staging copy on another host, pass `--i-know-the-host`.
+
 Beta (`beta.dynamicbusiness.com`) also needs `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`
 (see `.env.cf-bots.example` and `docs/cf-bypass.md`).
 

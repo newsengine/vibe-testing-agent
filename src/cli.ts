@@ -56,17 +56,19 @@ import { buildCoverageMap, summarizeCoverage } from './crawl-map.js';
 import { activeInjectionScan } from './inject.js';
 import { withCfBypassHeaders } from './cf-bypass-headers.js';
 import { execFileSync } from 'node:child_process';
+import { parseArgs } from './argv.js';
 
 const VERSION = (() => {
   try { return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version as string; }
   catch { return '0.0.0'; }
 })();
 
+// Re-parsed on every call because `review` rewrites process.argv before falling through to the scan.
+const parsed = () => parseArgs(process.argv.slice(2));
 function arg(name: string): string | undefined {
-  const i = process.argv.indexOf(name);
-  return i >= 0 ? process.argv[i + 1] : undefined;
+  return parsed().values.get(name)?.[0];
 }
-const flag = (name: string) => process.argv.includes(name);
+const flag = (name: string) => parsed().flags.has(name);
 const list = (v?: string) => (v ? (v.split(',').map((s) => s.trim()).filter(Boolean) as Category[]) : undefined);
 
 const SEV_ICON: Record<Severity, string> = { high: '🟥', medium: '🟧', low: '🟨', info: 'ℹ️ ' };
@@ -322,13 +324,19 @@ async function runSeparation() {
 async function runDbCritical() {
   const target = process.argv[3];
   if (!target || target.startsWith('-')) {
-    console.error('usage: vibetesting-agent db-critical <url> [--json] [--quiet] [--timeout ms]\n       Env: VTA_EDITOR_EMAIL/PASSWORD, VTA_SUPERADMIN_EMAIL/PASSWORD, optional VTA_USER_*, VTA_TOTP_SECRET,\n            VTA_UNPUBLISHED_ARTICLE_URL, VTA_STRIPE_AMOUNT_PROBE=1, CF_SMOKE_KEY (see examples/db-critical-path/)');
+    console.error('usage: vibetesting-agent db-critical <url> [--json] [--quiet] [--timeout ms] [--i-know-the-host]\n       Env: VTA_EDITOR_EMAIL/PASSWORD, VTA_SUPERADMIN_EMAIL/PASSWORD, optional VTA_USER_*, VTA_TOTP_SECRET,\n            VTA_UNPUBLISHED_ARTICLE_URL, VTA_STRIPE_AMOUNT_PROBE=1, CF_SMOKE_KEY (see examples/db-critical-path/)');
     process.exit(2); return;
   }
-  const { runDbCritical: run } = await import('./db-critical.js');
+  const { runDbCritical: run, dbCriticalHostAllowed } = await import('./db-critical.js');
   const url = normalizeUrl(target);
+  const allowAnyHost = flag('--i-know-the-host');
+  if (!allowAnyHost && !dbCriticalHostAllowed(url)) {
+    console.error(`db-critical sends editor/superadmin/user session tokens to the target, so it only runs against\n` +
+      `dynamicbusiness.com hosts. Pass --i-know-the-host to run it against ${new URL(url).host} anyway.`);
+    process.exit(2); return;
+  }
   const tRaw = arg('--timeout');
-  const findings = await run(url, { timeoutMs: tRaw && Number(tRaw) > 0 ? Number(tRaw) : undefined });
+  const findings = await run(url, { timeoutMs: tRaw && Number(tRaw) > 0 ? Number(tRaw) : undefined, allowAnyHost });
   const sum = summarize(findings);
   if (flag('--json')) { console.log(JSON.stringify({ url, summary: sum, findings }, null, 2)); }
   else {
@@ -431,7 +439,7 @@ async function runInit() {
 async function runReview() {
   // Rewrite argv so main scan path sees: <url> --agent-report … --gherkin …
   const rest = process.argv.slice(3);
-  const rawUrl = rest.find((a) => a && !a.startsWith('-'));
+  const rawUrl = parseArgs(rest).positionals[0];
   if (!rawUrl) {
     console.error('usage: vibetesting-agent review <url> [--name <project>] [--fail-on high|medium|any] [same flags as scan]');
     process.exit(2);
@@ -442,7 +450,7 @@ async function runReview() {
   // Inject defaults if user didn't pass them
   if (!arg('--agent-report')) process.argv.push('--agent-report', agentOut);
   if (!arg('--gherkin')) process.argv.push('--gherkin', gherkinOut);
-  if (name && !process.argv.includes('--project-name')) process.argv.push('--project-name', name);
+  if (name && !arg('--project-name')) process.argv.push('--project-name', name);
   // Drop the "review" token so position 2 is the URL
   process.argv.splice(2, 1);
   // fall through — caller invokes main body via re-entry
@@ -489,13 +497,10 @@ async function mainScan() {
   const extraHeaders: Record<string, string> = {};
   const cookie = arg('--cookie');
   if (cookie) extraHeaders['cookie'] = cookie;
-  for (let i = 0; i < process.argv.length; i++) {
-    if (process.argv[i] === '--header') {
-      const raw = process.argv[i + 1] || '';
-      const idx = raw.indexOf(':');
-      if (idx > 0) extraHeaders[raw.slice(0, idx).trim().toLowerCase()] = raw.slice(idx + 1).trim();
-      else { console.error(`--header must be "Name: value" (got "${raw}")`); process.exit(2); }
-    }
+  for (const raw of parsed().values.get('--header') ?? []) {
+    const idx = raw.indexOf(':');
+    if (idx > 0) extraHeaders[raw.slice(0, idx).trim().toLowerCase()] = raw.slice(idx + 1).trim();
+    else { console.error(`--header must be "Name: value" (got "${raw}")`); process.exit(2); }
   }
   // Cloudflare bot / Access bypass from env (CF_SMOKE_KEY + beta Access token).
   // CLI --header/--cookie still win on key collision via withCfBypassHeaders.

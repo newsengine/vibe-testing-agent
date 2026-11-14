@@ -11,6 +11,7 @@ import {
   totpCode,
   TINY_PNG,
   runDbCritical,
+  dbCriticalHostAllowed,
   isLegacyJwtAnonKey,
   supabaseAuthStorageKey,
   chunkSupabaseCookie,
@@ -75,7 +76,7 @@ test('db-critical: missing creds produce SKIP passes (no false-fail)', async () 
   for (const k of keys) { saved[k] = process.env[k]; delete process.env[k]; }
 
   try {
-    const findings = await runDbCritical('https://example.com', { timeoutMs: 5000 });
+    const findings = await runDbCritical('https://example.com', { timeoutMs: 5000, allowAnyHost: true });
     assert.ok(findings.length >= 8);
     for (const f of findings) {
       if (f.id.startsWith('db.auth.') || f.id === 'db.api.uploads-ad' || f.id === 'db.api.uploads-empty'
@@ -140,4 +141,31 @@ test('db-critical: buildSupabaseSsrCookieHeader is base64- prefixed', () => {
   }, 'https://db.example.com');
   assert.match(header, /^sb-abc123-auth-token(\.\d+)?=base64-/);
   assert.ok(!header.includes('eyJhbGciOiJub25lIn0'), 'raw JWT must not appear unencoded in cookie name path');
+});
+
+test('db-critical: staff tokens only go to dynamicbusiness.com unless allowAnyHost', async () => {
+  assert.equal(dbCriticalHostAllowed('https://dynamicbusiness.com'), true);
+  assert.equal(dbCriticalHostAllowed('beta.dynamicbusiness.com'), true);
+  assert.equal(dbCriticalHostAllowed('https://evil.example'), false);
+  assert.equal(dbCriticalHostAllowed('https://dynamicbusiness.com.evil.example'), false);
+  assert.equal(dbCriticalHostAllowed('https://notdynamicbusiness.com'), false);
+
+  // Creds set + a non-DB host: the suite must not log in or send anything.
+  const saved = { e: process.env.VTA_EDITOR_EMAIL, p: process.env.VTA_EDITOR_PASSWORD };
+  process.env.VTA_EDITOR_EMAIL = 'editor@example.invalid';
+  process.env.VTA_EDITOR_PASSWORD = 'not-a-real-password';
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => { calls++; throw new Error('network disabled in test'); }) as typeof fetch;
+  try {
+    const findings = await runDbCritical('https://evil.example', { timeoutMs: 1000 });
+    assert.equal(calls, 0, 'db-critical made network calls to a non-DB host');
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].id, 'db.host-gate');
+    assert.match(findings[0].detail, /^SKIP:/);
+  } finally {
+    globalThis.fetch = realFetch;
+    if (saved.e === undefined) delete process.env.VTA_EDITOR_EMAIL; else process.env.VTA_EDITOR_EMAIL = saved.e;
+    if (saved.p === undefined) delete process.env.VTA_EDITOR_PASSWORD; else process.env.VTA_EDITOR_PASSWORD = saved.p;
+  }
 });
