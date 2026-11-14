@@ -1,4 +1,4 @@
-// Public API for @newsengine/vibetesting-agent.
+// Public API for vibetesting-agent.
 export { probe, scan, summarize, discoverPages, normalizeUrl, ALL_CATEGORIES, } from './probe.js';
 export { loadConfig } from './config.js';
 export { securityChecks, secretChecks, exposureChecks, reliabilityChecks, seoChecks, a11yChecks, performanceChecks, } from './checks.js';
@@ -30,5 +30,4 @@ export { serverCveFindings, parseServerBanners, SERVER_CVES } from './servercve.
 export { buildCoverageMap, parseForms, summarizeCoverage, } from './crawl-map.js';
 export { activeInjectionScan, runDetectors, detectSqlError, detectSqlBoolean, detectSqlTime, detectSsti, detectCmdTime, detectTraversal, } from './inject.js';
 export { appStyleChecks, detectAppStyles, appStyleRuleSpecs, APP_STYLE_KEYS, } from './appstyle.js';
-export { cfBypassHeaders, withCfBypassHeaders, installCfBypassRoute, isSmokeKeyHost, isBetaAccessHost, BETA_ACCESS_HOST } from './cf-bypass-headers.js';
-export { runDbCritical, dbCriticalCheckSpecs, obtainAccessToken, obtainSession, totpCode, TINY_PNG, buildSupabaseSsrCookieHeader, supabaseAuthStorageKey, chunkSupabaseCookie, isLegacyJwtAnonKey, htmlReflectsXss, profilesDumpDetected, } from './db-critical.js';
+export { cfBypassHeaders, withCfBypassHeaders, installCfBypassRoute, isSmokeKeyHost, isCfAccessHost, hostMatchesAllowlist, parseHostAllowlist } from './cf-bypass-headers.js';

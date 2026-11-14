@@ -29,5 +29,4 @@ export { serverCveFindings, parseServerBanners, SERVER_CVES, type ServerCve } fr
 export { buildCoverageMap, parseForms, summarizeCoverage, type CoverageMap, type FormSpec, type CrawlMapOptions, } from './crawl-map.js';
 export { activeInjectionScan, runDetectors, detectSqlError, detectSqlBoolean, detectSqlTime, detectSsti, detectCmdTime, detectTraversal, type Probe, type Prober, type InjectionHit, } from './inject.js';
 export { appStyleChecks, detectAppStyles, appStyleRuleSpecs, APP_STYLE_KEYS, type AppStyleKey, type AppStyleSignal, type AppStyleRuleSpec, } from './appstyle.js';
-export { cfBypassHeaders, withCfBypassHeaders, installCfBypassRoute, isSmokeKeyHost, isBetaAccessHost, BETA_ACCESS_HOST } from './cf-bypass-headers.js';
-export { runDbCritical, dbCriticalCheckSpecs, obtainAccessToken, obtainSession, totpCode, TINY_PNG, buildSupabaseSsrCookieHeader, supabaseAuthStorageKey, chunkSupabaseCookie, isLegacyJwtAnonKey, htmlReflectsXss, profilesDumpDetected, type DbCriticalSpec, type DbCriticalRole, } from './db-critical.js';
+export { cfBypassHeaders, withCfBypassHeaders, installCfBypassRoute, isSmokeKeyHost, isCfAccessHost, hostMatchesAllowlist, parseHostAllowlist } from './cf-bypass-headers.js';

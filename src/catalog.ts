@@ -9,7 +9,6 @@ import type { Category, Severity } from './types.js';
 import { refsFor } from './compliance.js';
 import { appStyleRuleSpecs } from './appstyle.js';
 import { atlasCheckSpecs } from './atlas.js';
-import { dbCriticalCheckSpecs } from './db-critical.js';
 import { CATALOG_NUMBERS } from './catalog-numbers.js';
 
 /**
@@ -27,7 +26,7 @@ export type CheckClass =
 export interface CheckSpec {
   /** Stable finding id, or — when `dynamic` — the id prefix the engine appends a target to. */
   id: string;
-  category: Category | 'testkit' | 'dbcms';
+  category: Category | 'testkit';
   /** Short human name for the catalog. */
   title: string;
   /** Typical severity when it fails (some vary at runtime by context). */
@@ -213,16 +212,6 @@ for (const spec of atlasCheckSpecs()) {
   });
 }
 
-// Dynamic Business CMS critical-path suite (CLI: `vibetesting-agent db-critical <url>`). Catalogued so
-// the official checklist tracks them; not part of the default URL scan (creds/fixtures required).
-for (const spec of dbCriticalCheckSpecs()) {
-  const cls: CheckClass = spec.cls === 'probe' ? 'probe' : spec.cls === 'authenticated' ? 'authenticated' : 'white-box';
-  CATALOG.push({
-    id: spec.id, category: 'dbcms', title: spec.title, severity: spec.severity, cls,
-    optIn: true, since: '0.8.0', description: spec.description,
-  });
-}
-
 /** Exact-match first, then the longest `dynamic` family prefix the id starts with. */
 export function catalogEntryFor(id: string): CheckSpec | undefined {
   const exact = CATALOG.find((c) => c.id === id);
@@ -236,7 +225,7 @@ export function catalogEntryFor(id: string): CheckSpec | undefined {
 
 /** Every id/family the scanner (non-testkit) is expected to be able to emit. */
 export function scannerSpecs(): CheckSpec[] {
-  return CATALOG.filter((c) => c.category !== 'testkit' && c.category !== 'dbcms');
+  return CATALOG.filter((c) => c.category !== 'testkit');
 }
 
 // ── stable test numbering (VTA-NNNN) ────────────────────────────────────────────────────────────────
@@ -303,23 +292,23 @@ export function renderCatalogMarkdown(): string {
   lines.push('> Generated from `src/catalog.ts` by `npm run catalog`. Do not edit by hand — edit the catalog and regenerate.');
   lines.push('> `tests/catalog.test.ts` fails the build if the engine emits a finding id that is not listed here, or if this file is stale.');
   lines.push('');
-  lines.push(`**${scannerSpecs().length}** scanner checks + **${CATALOG.filter((c) => c.category === 'dbcms').length}** Dynamic Business CMS critical-path checks + **${CATALOG.filter((c) => c.category === 'testkit').length}** white-box testkit helpers.`);
+  lines.push(`**${scannerSpecs().length}** scanner checks + **${CATALOG.filter((c) => c.category === 'testkit').length}** white-box testkit helpers.`);
   lines.push('');
   lines.push('Legend — how each check reaches its verdict:');
   lines.push('');
   for (const k of Object.keys(CLASS_LABEL) as CheckClass[]) lines.push(`- **${k}** — ${CLASS_LABEL[k].replace(/^[a-z-]+ \(/, '').replace(/\)$/, '')}`);
   lines.push('');
 
-  const order: (Category | 'testkit' | 'dbcms')[] = [
+  const order: (Category | 'testkit')[] = [
     'security', 'secrets', 'exposure', 'dns', 'reliability', 'seo', 'a11y', 'performance',
-    'agent', 'framework', 'components', 'host', 'appstyle', 'atlas', 'plugins', 'dbcms', 'testkit',
+    'agent', 'framework', 'components', 'host', 'appstyle', 'atlas', 'plugins', 'testkit',
   ];
-  const CAT_TITLE: Record<Category | 'testkit' | 'dbcms', string> = {
+  const CAT_TITLE: Record<Category | 'testkit', string> = {
     security: 'Security', secrets: 'Leaked secrets', exposure: 'Exposed files & debug', dns: 'DNS & email',
     reliability: 'Reliability', seo: 'SEO', a11y: 'Accessibility', performance: 'Performance', agent: 'Agent readiness',
     framework: 'Framework-specific', components: 'Vulnerable components', host: 'Host & infrastructure',
     appstyle: 'App-type rules (top-20 business archetypes)', atlas: 'AI/LLM attack surface (MITRE ATLAS)',
-    plugins: 'Custom plugins', dbcms: 'Dynamic Business CMS critical path', testkit: 'White-box testkit helpers',
+    plugins: 'Custom plugins', testkit: 'White-box testkit helpers',
   };
 
   for (const cat of order) {

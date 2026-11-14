@@ -4,7 +4,7 @@ VibeTesting Agent runs on **Cloudflare Workers** via OpenNext + **D1**.
 
 ## Live URL (now)
 
-**https://vibetesting-agent.dynamicbusiness.workers.dev**
+**https://vibetestingagent.com** (plus the account `*.workers.dev` URL for the `vibetesting-agent` Worker)
 
 ## Architecture
 
@@ -38,8 +38,8 @@ Or DNS (zone already exists):
 
 | Type | Name | Content | Proxy |
 |---|---|---|---|
-| CNAME | `@` | `vibetesting-agent.dynamicbusiness.workers.dev` | Proxied* |
-| CNAME | `www` | `vibetesting-agent.dynamicbusiness.workers.dev` | Proxied |
+| CNAME | `@` | `vibetesting-agent.<account-subdomain>.workers.dev` | Proxied* |
+| CNAME | `www` | `vibetesting-agent.<account-subdomain>.workers.dev` | Proxied |
 
 \*Apex CNAME works on Cloudflare when proxied (CNAME flattening).
 
@@ -50,7 +50,7 @@ Also add Worker custom domain so TLS + routing attach correctly.
 Redirect URIs:
 
 ```
-https://vibetesting-agent.dynamicbusiness.workers.dev/api/auth/workos/callback
+https://vibetesting-agent.<account-subdomain>.workers.dev/api/auth/workos/callback
 https://vibetestingagent.com/api/auth/workos/callback
 http://localhost:3000/api/auth/workos/callback
 ```

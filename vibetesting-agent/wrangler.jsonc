@@ -32,7 +32,7 @@
   "vars": {
     "NEXT_PUBLIC_APP_URL": "https://vibetestingagent.com",
     "NEXT_PUBLIC_LEGAL_NAME": "Newsengine",
-    "NEXT_PUBLIC_SUPPORT_EMAIL": "mike@dynamicbusiness.com.au",
+    "NEXT_PUBLIC_SUPPORT_EMAIL": "security@vibetestingagent.com",
     "NEXT_PUBLIC_APP_NAME": "VibeTesting Agent"
   }
 }

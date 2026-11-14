@@ -581,7 +581,7 @@ test('classifyTenantAccess: leak vs isolated vs inconclusive', () => {
   assert.equal(classifyTenantAccess({ baseline: ownerData, attack: { status: 200, body: '{"records":[{"id":99}]}' }, control: attackerOwn }).verdict, 'inspect');
 });
 
-// ═══════════════════ RBAC / access-control testkit (generalized from db-nextjs-fresh) ═══════════
+// ═══════════════════ RBAC / access-control testkit ═══════════════════════════════════════════════
 
 test('rbacProbe: passes a properly-gated endpoint, flags an open one', async () => {
   // Stub: admin token -> 200, any other token -> 403, no token -> 401.

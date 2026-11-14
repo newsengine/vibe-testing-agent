@@ -15,7 +15,7 @@ import dns from 'node:dns';
 
 const lookup = promisify(dns.lookup);
 
-const API = (process.env.VTA_API_URL || 'https://vibetesting-agent.dynamicbusiness.workers.dev').replace(
+const API = (process.env.VTA_API_URL || 'https://vibetestingagent.com').replace(
   /\/$/,
   '',
 );
