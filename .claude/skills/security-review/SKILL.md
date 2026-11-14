@@ -14,7 +14,7 @@ description: Run vibetesting-agent security-review on a deploy URL — ranked ag
 ## Command
 
 ```bash
-npx --yes vibetesting-agent review <URL> \
+npx --yes vibetesting-agent@0.6.1 review <URL> \
   --agent-report security-review.md \
   --gherkin features/security/hygiene.feature
 ```
@@ -22,7 +22,7 @@ npx --yes vibetesting-agent review <URL> \
 New repo scaffold:
 
 ```bash
-npx --yes vibetesting-agent init <URL> --name <project>
+npx --yes vibetesting-agent@0.6.1 init <URL> --name <project>
 ```
 
 ## Report format

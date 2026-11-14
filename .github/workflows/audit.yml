@@ -16,6 +16,10 @@ on:
       prod_only: { required: false, type: boolean, default: false }
       node_version: { required: false, type: string, default: '20' }
 
+# Read-only token: enough to check out the caller's repo, nothing else.
+permissions:
+  contents: read
+
 jobs:
   audit:
     runs-on: ubuntu-latest
@@ -27,7 +31,11 @@ jobs:
       - run: npm ci || npm install
       - name: vibetesting-agent audit
         shell: bash
+        env:
+          # Inputs reach the shell only as env vars (never interpolated into the script).
+          IN_LEVEL: ${{ inputs.level }}
+          IN_PROD_ONLY: ${{ inputs.prod_only }}
         run: |
-          ARGS=(audit --level "${{ inputs.level }}")
-          if [ "${{ inputs.prod_only }}" = "true" ]; then ARGS+=(--prod); fi
-          npx --yes vibetesting-agent "${ARGS[@]}"
+          ARGS=(audit --level "$IN_LEVEL")
+          if [ "$IN_PROD_ONLY" = "true" ]; then ARGS+=(--prod); fi
+          npx --yes vibetesting-agent@0.6.1 "${ARGS[@]}"
