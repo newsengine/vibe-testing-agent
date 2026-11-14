@@ -60,13 +60,63 @@ export function gradeTlsCipher(cipher) {
 }
 // Every network call gets a hard deadline so a dead/slow/hostile site can't hang the scan forever.
 export const DEFAULT_TIMEOUT_MS = 10_000;
+const MAX_REDIRECTS = 10;
+/**
+ * Follow redirects by hand instead of letting fetch() do it, so caller headers (--cookie, --header,
+ * CF bypass keys) stay on the origin they were meant for. Once a hop changes origin every caller header
+ * is dropped for the rest of the chain, and an https -> http downgrade is never followed (the 3xx is
+ * returned as-is). `doFetch` is injectable for tests.
+ */
+export async function fetchFollowingRedirects(url, init = {}, doFetch = fetch) {
+    let current = url;
+    let reqInit = { ...init, redirect: 'manual' };
+    for (let hop = 0;; hop++) {
+        const res = await doFetch(current, reqInit);
+        if (res.status < 300 || res.status >= 400 || res.status === 304)
+            return res;
+        const loc = res.headers.get('location');
+        if (!loc || hop >= MAX_REDIRECTS)
+            return res;
+        let prev, next;
+        try {
+            prev = new URL(current);
+            next = new URL(loc, current);
+        }
+        catch {
+            return res;
+        }
+        if (next.protocol !== 'http:' && next.protocol !== 'https:')
+            return res;
+        if (prev.protocol === 'https:' && next.protocol === 'http:')
+            return res;
+        if (next.origin !== prev.origin) {
+            const { headers: _drop, ...rest } = reqInit;
+            reqInit = rest;
+        }
+        // Same method rewrite fetch() applies: 303 (non-HEAD), and 301/302 on POST, become a bodiless GET.
+        const method = (reqInit.method || 'GET').toUpperCase();
+        if ((res.status === 303 && method !== 'HEAD') || ((res.status === 301 || res.status === 302) && method === 'POST')) {
+            const { body: _body, ...rest } = reqInit;
+            reqInit = { ...rest, method: 'GET' };
+        }
+        try {
+            await res.body?.cancel();
+        }
+        catch { /* already consumed */ }
+        current = next.toString();
+    }
+}
 /** fetch() with an AbortController timeout. Merges any caller-supplied signal-less init. */
 async function fetchWithTimeout(url, init, timeoutMs) {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), timeoutMs);
     try {
         // signal LAST so a caller-supplied init can't clobber the timeout.
-        return await fetch(url, { ...init, signal: ac.signal });
+        const merged = { ...init, signal: ac.signal };
+        // 'follow' (fetch's default) goes through the origin-aware follower; 'manual'/'error' pass through.
+        if (!init?.redirect || init.redirect === 'follow')
+            return await fetchFollowingRedirects(url, merged);
+        return await fetch(url, merged);
     }
     finally {
         clearTimeout(timer);

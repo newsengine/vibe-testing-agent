@@ -29,6 +29,22 @@ export interface CrawlOptions {
 const f = (id: string, title: string, severity: Severity, detail: string, fix: string, category: Finding['category'] = 'reliability'): Finding =>
   ({ category, id, title, severity, pass: false, detail, fix });
 
+/**
+ * Turn a raw `Cookie:` header ("a=1; b=2") into Playwright cookies bound to `origin` via `url`, so the
+ * browser only sends them back to that host (host-only, Secure when the origin is https).
+ */
+export function cookieHeaderToCookies(raw: string, origin: string): { name: string; value: string; url: string }[] {
+  const url = new URL(origin).origin + '/';
+  const out: { name: string; value: string; url: string }[] = [];
+  for (const part of raw.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq <= 0) continue;
+    const name = part.slice(0, eq).trim();
+    if (name) out.push({ name, value: part.slice(eq + 1).trim(), url });
+  }
+  return out;
+}
+
 export async function crawlAudit(startUrl: string, opts: CrawlOptions = {}): Promise<Finding[]> {
   const origin = new URL(startUrl).origin;
   const maxPages = opts.maxPages ?? 30;
@@ -52,7 +68,10 @@ export async function crawlAudit(startUrl: string, opts: CrawlOptions = {}): Pro
     closeSession = async () => { try { await browser.close(); } catch {} };
   }
 
-  const ctx = browser.contexts()[0] || await browser.newContext(opts.cookie ? { extraHTTPHeaders: { cookie: opts.cookie } } : {});
+  const ctx = browser.contexts()[0] || await browser.newContext();
+  // Scope --cookie to the target origin. extraHTTPHeaders would send it to every third-party origin
+  // the page loads (CDNs, analytics, embeds).
+  if (opts.cookie) await ctx.addCookies(cookieHeaderToCookies(opts.cookie, origin));
   const page = await ctx.newPage();
 
   const seen = new Set<string>();
