@@ -144,7 +144,7 @@ export function buildAgentFixPrompt(
   lines.push(`## Deliverables`);
   lines.push(`1. Code/config patches for all P1–P${fails.length} items you can fix in-repo.`);
   lines.push(`2. Short checklist of deploy/DNS steps the human must do outside the repo.`);
-  lines.push(`3. Suggested re-scan command: \`npx github:newsengine/vibetesting-agent ${url}\``);
+  lines.push(`3. Suggested re-scan command: \`npx vibetesting-agent ${url}\``);
   lines.push(``);
   lines.push(`Start with P1 now.`);
 

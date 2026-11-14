@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+- npm package renamed from `@newsengine/vibetesting-agent` to the unscoped **`vibetesting-agent`**
+  (version 0.6.1) so `npx vibetesting-agent <url>` and `npm install -g vibetesting-agent` work.
+  Repository, issue and homepage links now point at `newsengine/vibe-testing-agent`.
+
 ### Added
 - **Dynamic Business CMS critical-path suite (`vibetesting-agent db-critical <url>`):**
   authenticated editor/superadmin CMS smokes, `/api/uploads` type=ad + empty→400 (#1441),

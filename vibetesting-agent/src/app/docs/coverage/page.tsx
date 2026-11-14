@@ -249,7 +249,7 @@ export default function CoveragePage() {
               Free lite scan on the homepage, or the full CLI with compliance output.
             </p>
             <pre className="mono mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs text-[var(--mut)]">
-              npx github:newsengine/vibetesting-agent https://your-app.example.com --compliance
+              npx vibetesting-agent https://your-app.example.com --compliance
             </pre>
           </div>
           <div className="mt-4 flex flex-wrap gap-3 sm:mt-0 sm:shrink-0">

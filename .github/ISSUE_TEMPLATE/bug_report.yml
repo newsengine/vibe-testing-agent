@@ -30,7 +30,7 @@ body:
     id: command
     attributes:
       label: Command you ran
-      description: e.g. `npx github:newsengine/vibetesting-agent https://example.com --only security`
+      description: e.g. `npx vibetesting-agent https://example.com --only security`
       render: shell
     validations:
       required: true

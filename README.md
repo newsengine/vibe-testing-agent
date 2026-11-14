@@ -1,33 +1,56 @@
-# @newsengine/vibetesting-agent
+# vibetesting-agent
+
+[![npm](https://img.shields.io/npm/v/vibetesting-agent)](https://www.npmjs.com/package/vibetesting-agent)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 **Point it at any deployed app and it tells you everything wrong with it** — leaked API keys in your
 JS bundle, an exposed `.env`/`.git`, broken links, missing security headers, SEO/accessibility/perf
 gaps. One command, **zero install**, no source access, no headless browser:
 
 ```bash
-npx github:newsengine/vibetesting-agent https://your-app.example.com
+npx vibetesting-agent https://your-app.example.com
 ```
 
-📄 **Landing page:** [`docs/index.html`](docs/index.html) (self-contained; serve via GitHub Pages from `/docs`).
+Free and open source (Apache-2.0). Website: https://vibetestingagent.com
 
-☁️ **VibeTesting Agent (hosted):** https://vibetestingagent.com — dashboard in [`vibetesting-agent/`](vibetesting-agent/).
-Plans: **$25/mo weekly** · **$100/mo daily** · **$250/mo every commit**. WorkOS + Stripe. Ownership verification required.
-OSS CLI stays free. Meta repo: https://github.com/mikenicholls-msv/vibetesting-agent
+## Install
+
+Requires **Node.js 20+**. Pick one:
+
+```bash
+# 1. Zero install (always the latest published version)
+npx vibetesting-agent https://your-app.example.com
+
+# 2. Global install: adds the `vibetesting-agent` and `vta` commands
+npm install -g vibetesting-agent
+vibetesting-agent https://your-app.example.com
+
+# 3. As a dev dependency (CI scripts, or the white-box helpers in your tests)
+npm install --save-dev vibetesting-agent
+npx vibetesting-agent https://your-app.example.com
+
+# 4. From source
+git clone https://github.com/newsengine/vibe-testing-agent.git
+cd vibe-testing-agent
+npm ci
+npm run build
+node dist/cli.js https://your-app.example.com
+```
 
 ### Security review (agent report + Gherkin)
 Same shape as a Claude security artifact / `findings-for-agent.md` — ranked **P1/P2** with fix + verify, plus BDD:
 
 ```bash
 # Every software update / /security-review
-npx github:newsengine/vibetesting-agent review https://your-app.example.com
+npx vibetesting-agent review https://your-app.example.com
 
 # Or flags on any scan:
-npx github:newsengine/vibetesting-agent https://your-app.example.com \
+npx vibetesting-agent https://your-app.example.com \
   --agent-report security-review.md \
   --gherkin features/security/hygiene.feature
 
 # New repo: scaffold suite + CI + baseline
-npx github:newsengine/vibetesting-agent init https://your-app.example.com --name my-app
+npx vibetesting-agent init https://your-app.example.com --name my-app
 ```
 
 > ### ⚖️ Authorized use only
@@ -221,7 +244,7 @@ name: security
 on: [pull_request, workflow_dispatch]
 jobs:
   probe:
-    uses: newsengine/vibetesting-agent/.github/workflows/probe.yml@main
+    uses: newsengine/vibe-testing-agent/.github/workflows/probe.yml@main
     with:
       url: https://your-deploy.example.com
       cors_path: /api/public/health        # optional
@@ -233,11 +256,11 @@ jobs:
 > **Private repo?** `uses:` a reusable workflow from a private repo needs org "Actions access" enabled.
 > The portable pattern that always works is **checkout-with-token + run the committed `dist/`** (this
 > repo commits its build, so there's no build step). One-time: add a fine-grained PAT with
-> **Contents: Read** on `newsengine/vibetesting-agent` as an **org secret** named `ANALPROBE_TOKEN`:
+> **Contents: Read** on `newsengine/vibe-testing-agent` as an **org secret** named `ANALPROBE_TOKEN`:
 > ```yaml
 >   steps:
 >     - uses: actions/checkout@v4
->       with: { repository: newsengine/vibetesting-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
+>       with: { repository: newsengine/vibe-testing-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
 >     - run: node .kit/dist/cli.js https://your-deploy.example.com --fail-on high
 > ```
 
@@ -249,7 +272,7 @@ jobs:
     permissions: { security-events: write, contents: read }
     steps:
       - uses: actions/checkout@v4
-        with: { repository: newsengine/vibetesting-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
+        with: { repository: newsengine/vibe-testing-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
       - run: node .kit/dist/cli.js https://your-deploy.example.com --sarif > probe.sarif
         continue-on-error: true          # don't block the upload; gate in a separate step if you want
       - uses: github/codeql-action/upload-sarif@v3
@@ -266,10 +289,10 @@ node .kit/dist/cli.js https://your-deploy.example.com --baseline probe-baseline.
 ## Use the CLI locally / ad-hoc
 ```bash
 # full scan (all 13 categories)
-npx github:newsengine/vibetesting-agent https://app.example.com
+npx vibetesting-agent https://app.example.com
 
 # scope it, gate harder, test CORS, machine-readable output
-npx github:newsengine/vibetesting-agent https://app.example.com \
+npx vibetesting-agent https://app.example.com \
   --only secrets,exposure,security \
   --cors-path /api/public/health --allow-report-only-csp \
   --fail-on medium --json
@@ -280,7 +303,7 @@ Flags: `--only <cats>` · `--skip <cats>` · `--cors-path <p>` · `--rate-limit-
 
 ## Use the white-box helpers in your tests
 ```ts
-import { idorProbe, checkSecurityHeaders } from '@newsengine/vibetesting-agent';
+import { idorProbe, checkSecurityHeaders } from 'vibetesting-agent';
 
 // Cross-tenant: authenticate as tenant B, try to read tenant A's resources — must be denied.
 const results = await idorProbe(tenantB, [
@@ -294,7 +317,16 @@ expect(checkSecurityHeaders(res.headers, { requireEnforcedCsp: true })).toEqual(
 
 ## Develop
 ```bash
-npm install && npm run build && npm test
+git clone https://github.com/newsengine/vibe-testing-agent.git
+cd vibe-testing-agent
+npm ci && npm run build && npm test
+```
+
+### Releasing to npm (maintainers)
+```bash
+npm login
+npm test
+npm publish --access public   # prepublishOnly rebuilds dist/
 ```
 
 ### How we test that the checks work

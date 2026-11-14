@@ -3,7 +3,7 @@
 **https://vibetestingagent.com**
 
 Hosted continuous security scanning for vibe-coded apps. Powered by the open-source
-[`vibetesting-agent`](https://github.com/newsengine/vibetesting-agent) engine.
+[`vibetesting-agent`](https://github.com/newsengine/vibe-testing-agent) engine.
 
 ## Plans
 
@@ -75,7 +75,7 @@ Helper: `scripts/configure-dns.sh`
 
 ## Open source
 
-- Scanner engine: https://github.com/newsengine/vibetesting-agent (Apache-2.0)  
-- Brand / docs entry: https://github.com/newsengine/vibetesting-agent  
+- Scanner engine: https://github.com/newsengine/vibe-testing-agent (Apache-2.0)  
+- Brand / docs entry: https://github.com/newsengine/vibe-testing-agent  
 
 Hosted multi-tenant billing remains proprietary configuration; the scan engine is OSS.

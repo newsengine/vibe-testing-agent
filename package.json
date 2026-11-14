@@ -1,7 +1,7 @@
 {
-  "name": "@newsengine/vibetesting-agent",
-  "version": "0.6.0",
-  "description": "Point it at any deployed app and it finds what's wrong: leaked API keys in your JS bundle, exposed .env/.git/config, broken links, missing security headers, SEO/accessibility/performance gaps — all black-box from a URL, zero install. Plus white-box multi-tenant/IDOR test helpers. Drop into any repo. Powered by VibeTesting Agent.",
+  "name": "vibetesting-agent",
+  "version": "0.6.1",
+  "description": "Open-source black-box security scanner for deployed web apps: leaked API keys in JS bundles, exposed .env/.git/config, missing security headers, broken links, SEO, accessibility and performance gaps, all from a URL. Plus white-box multi-tenant and IDOR test helpers.",
   "type": "module",
   "bin": {
     "vibetesting-agent": "dist/cli.js",
@@ -12,8 +12,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist",
-    "templates"
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "templates",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -33,12 +38,13 @@
   "keywords": [
     "security",
     "scanner",
-    "saas",
+    "security-scanner",
+    "cli",
     "vibetesting-agent",
     "vibe-coding",
     "secrets-detection",
     "owasp",
-    "headers",
+    "security-headers",
     "csp",
     "seo",
     "accessibility",
@@ -46,17 +52,18 @@
     "broken-links",
     "idor",
     "multi-tenant",
+    "sarif",
     "ci"
   ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/newsengine/vibetesting-agent.git"
+    "url": "git+https://github.com/newsengine/vibe-testing-agent.git"
   },
   "bugs": {
-    "url": "https://github.com/newsengine/vibetesting-agent/issues"
+    "url": "https://github.com/newsengine/vibe-testing-agent/issues"
   },
-  "homepage": "https://vibetestingagent.com",
+  "homepage": "https://github.com/newsengine/vibe-testing-agent#readme",
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^20.0.0",
@@ -65,5 +72,8 @@
     "playwright-core": "^1.61.1",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.63.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
