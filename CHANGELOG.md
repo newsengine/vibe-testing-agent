@@ -10,15 +10,17 @@ All notable changes to this project are documented here. The format is based on
 - npm package renamed from `@newsengine/vibetesting-agent` to the unscoped **`vibetesting-agent`**
   (version 0.6.1) so `npx vibetesting-agent <url>` and `npm install -g vibetesting-agent` work.
   Repository, issue and homepage links now point at `newsengine/vibe-testing-agent`.
+- Cloudflare bypass headers are no longer tied to built-in hosts. `x-smoke-key` is sent only to hosts in
+  `VTA_SMOKE_KEY_HOSTS` and Cloudflare Access headers only to hosts in `VTA_CF_ACCESS_HOSTS` (both empty
+  by default). `isBetaAccessHost` / `BETA_ACCESS_HOST` are replaced by `isCfAccessHost`,
+  `hostMatchesAllowlist` and `parseHostAllowlist`. The reusable `probe.yml` takes matching
+  `smoke_key_hosts` / `cf_access_hosts` inputs.
+
+### Removed
+- A project-specific critical-path subcommand and its example that had been added to this repo; it now
+  lives with the project it tested. Its catalog numbers (VTA-0155 to VTA-0164) stay reserved.
 
 ### Added
-- **Dynamic Business CMS critical-path suite (`vibetesting-agent db-critical <url>`):**
-  authenticated editor/superadmin CMS smokes, `/api/uploads` type=ad + empty→400 (#1441),
-  profiles RLS non-staff dump guard (#1416), ad-track/unsubscribe XSS hygiene, optional Stripe
-  amount dual-path (`VTA_STRIPE_AMOUNT_PROBE=1`), and editorial golden-path scaffold
-  (`VTA_UNPUBLISHED_ARTICLE_URL`). Missing creds/fixtures **SKIP** (never false-fail). Catalogued
-  under **dbcms** with stable `VTA-NNNN` ids (`npm run catalog`); see `examples/db-critical-path/`.
-
 - **Active injection engine (`--authorized-active`, `inject.*`):** opt-in, authorized, **non-destructive**
   parameter-driven testing over the coverage map's real GET parameters — **SQL injection** (error /
   boolean / time-based), **server-side template injection** (7*7→49), **OS command injection**

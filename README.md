@@ -101,7 +101,6 @@ every failing finding comes with a one-line **fix**. Exits non-zero so it double
   `classifyTenantAccess`, `findSensitiveFields`, `checkSecurityHeaders`, `checkCookieFlags`, `scanSecrets`):
   import into your own test suite (jest/vitest/node:test) for RBAC, cross-tenant/IDOR, mass-assignment,
   header/cookie/secret assertions. See `examples/security-suite/` + `examples/tenant-isolation/`.
-  Dynamic Business CMS critical path: `vibetesting-agent db-critical <url>` (see `examples/db-critical-path/`).
 - **Templates**: `SECURITY.md`, `security.txt`, `CODEOWNERS`.
 - **Reusable GitHub Actions workflow**: `.github/workflows/probe.yml` (call it with `uses:`).
 
@@ -210,31 +209,19 @@ vibetesting-agent audit --prod --level moderate --json
 > opt-in **`recon`** (port scan) + **`browse`** (browser-functional) modes.
 > Roadmap (PRs welcome): framework preset configs, deeper CVE-informational service ID.
 
-### `db-critical` — Dynamic Business CMS critical path
+### Cloudflare bot / Access bypass
 
-Persists DB's authenticated critical-path E2E coverage into the official checklist
-(`docs/CHECKS.md`, stable `VTA-NNNN` under the **dbcms** category): editor/superadmin CMS
-smokes, `/api/uploads` dogfood (#1441), profiles RLS (#1416), ad-track/unsubscribe XSS hygiene,
-optional Stripe dual-path, and an editorial golden-path scaffold.
-
-```bash
-source ~/.config/db-eng/vta-db-critical.env   # VTA_EDITOR_* / VTA_SUPERADMIN_* (never commit)
-vibetesting-agent db-critical https://dynamicbusiness.com
-```
-
-Missing credentials **SKIP** (pass) — they never false-fail. See [`examples/db-critical-path/`](examples/db-critical-path/).
-
-### Cloudflare bot / Access bypass (Dynamic Business)
-
-When probing a site behind Cloudflare Bot Fight / Access, set env vars (never commit secrets):
+When probing your own site behind Cloudflare Bot Fight / Access, set env vars (never commit secrets).
+Nothing is sent until you list the hosts that may receive each header:
 
 | Env var | Header | When |
 |---|---|---|
-| `CF_SMOKE_KEY` / `X_SMOKE_KEY` | `x-smoke-key` | `dynamicbusiness.com` / `*.dynamicbusiness.com` only. Legacy: `SMOKE_KEY`. |
-| `CF_ACCESS_CLIENT_ID` | `CF-Access-Client-Id` | **exact beta.dynamicbusiness.com only** |
-| `CF_ACCESS_CLIENT_SECRET` | `CF-Access-Client-Secret` | **exact beta.dynamicbusiness.com only** |
+| `CF_SMOKE_KEY` / `X_SMOKE_KEY` | `x-smoke-key` | host is in `VTA_SMOKE_KEY_HOSTS`. Legacy: `SMOKE_KEY`. |
+| `CF_ACCESS_CLIENT_ID` | `CF-Access-Client-Id` | host is in `VTA_CF_ACCESS_HOSTS` |
+| `CF_ACCESS_CLIENT_SECRET` | `CF-Access-Client-Secret` | host is in `VTA_CF_ACCESS_HOSTS` |
 
-Helper: `src/cf-bypass-headers.ts` (CLI `extraHeaders` per URL; `browse` uses host-filtered `context.route`, never global `extraHTTPHeaders`). Local: `set -a; source ~/.config/db-eng/cf-bot.env; set +a`. Reusable workflow `probe.yml` accepts the same secrets.
+Host lists are comma-separated; `example.com` is exact and `*.example.com` matches subdomains.
+Helper: `src/cf-bypass-headers.ts` (CLI `extraHeaders` per URL; `browse` uses host-filtered `context.route`, never global `extraHTTPHeaders`). Reusable workflow `probe.yml` accepts the same secrets plus `smoke_key_hosts` / `cf_access_hosts` inputs. See [docs/cf-bypass.md](docs/cf-bypass.md).
 
 
 ## Use it in CI across all repos (recommended)
@@ -253,15 +240,10 @@ jobs:
       allow_report_only_csp: true           # while CSP is still Report-Only
 ```
 
-> **Private repo?** `uses:` a reusable workflow from a private repo needs org "Actions access" enabled.
-> The portable pattern that always works is **checkout-with-token + run the committed `dist/`** (this
-> repo commits its build, so there's no build step). One-time: add a fine-grained PAT with
-> **Contents: Read** on `newsengine/vibe-testing-agent` as an **org secret** named `ANALPROBE_TOKEN`:
+> **Prefer a plain step?** Run the published CLI directly (pin the version you tested):
 > ```yaml
 >   steps:
->     - uses: actions/checkout@v4
->       with: { repository: newsengine/vibe-testing-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
->     - run: node .kit/dist/cli.js https://your-deploy.example.com --fail-on high
+>     - run: npx --yes vibetesting-agent@0.6.1 https://your-deploy.example.com --fail-on high
 > ```
 
 ### Findings in the GitHub Security tab (SARIF)
@@ -271,9 +253,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { security-events: write, contents: read }
     steps:
-      - uses: actions/checkout@v4
-        with: { repository: newsengine/vibe-testing-agent, token: '${{ secrets.ANALPROBE_TOKEN }}', path: .kit }
-      - run: node .kit/dist/cli.js https://your-deploy.example.com --sarif > probe.sarif
+      - run: npx --yes vibetesting-agent@0.6.1 https://your-deploy.example.com --sarif > probe.sarif
         continue-on-error: true          # don't block the upload; gate in a separate step if you want
       - uses: github/codeql-action/upload-sarif@v3
         with: { sarif_file: probe.sarif }
@@ -282,8 +262,8 @@ jobs:
 ### Gate on regressions only (baseline)
 Snapshot today's debt once, commit it, then fail CI only on *new* findings:
 ```bash
-node .kit/dist/cli.js https://your-deploy.example.com --write-baseline probe-baseline.json  # once, commit the file
-node .kit/dist/cli.js https://your-deploy.example.com --baseline probe-baseline.json --fail-on medium
+npx vibetesting-agent https://your-deploy.example.com --write-baseline probe-baseline.json  # once, commit the file
+npx vibetesting-agent https://your-deploy.example.com --baseline probe-baseline.json --fail-on medium
 ```
 
 ## Use the CLI locally / ad-hoc

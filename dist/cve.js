@@ -33,7 +33,7 @@ export async function lookupCves(product, version, opts = {}) {
         const ac = new AbortController();
         const t = setTimeout(() => ac.abort(), opts.timeoutMs ?? 12000);
         // NVD sits behind bot protection that 503s a request with no/generic UA — send an explicit one.
-        const res = await fetch(url, { signal: ac.signal, headers: { accept: 'application/json', 'user-agent': 'vibetesting-agent (+https://github.com/newsengine/vibetesting-agent)' } }).finally(() => clearTimeout(t));
+        const res = await fetch(url, { signal: ac.signal, headers: { accept: 'application/json', 'user-agent': 'vibetesting-agent (+https://github.com/newsengine/vibe-testing-agent)' } }).finally(() => clearTimeout(t));
         if (!res.ok)
             return [];
         return parseNvd(await res.json(), max);

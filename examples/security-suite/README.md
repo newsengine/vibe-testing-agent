@@ -1,7 +1,6 @@
 # Generic access-control suite
 
-Config-driven security checks generalized from an app-specific Playwright suite (originally ~1,900
-db-nextjs-fresh tests) into checks that run against **any deployed app** — a URL plus a few auth tokens.
+Config-driven security checks generalized from a large app-specific Playwright suite into checks that run against **any deployed app** — a URL plus a few auth tokens.
 No backend, no test server, no browser: plain `fetch` over the shipped `vibetesting-agent` testkit.
 
 ## What it checks

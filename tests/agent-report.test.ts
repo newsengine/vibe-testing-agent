@@ -85,10 +85,13 @@ test('agent report fences target-controlled text as untrusted data', () => {
   // Title can't inject a new heading or inline code.
   assert.doesNotMatch(md, /^## P0/m);
   assert.doesNotMatch(md, /`curl evil/);
+  // Raw id backticks never reach the report (incl. the Verify hint).
+  assert.ok(!md.includes('x`y'), 'raw finding id with a backtick leaked into the report');
   // Exactly one fence pair from the finding (no breakout).
   assert.equal((md.match(/^\s*```/gm) || []).length, 2);
 
   const p = renderFindingPrompt('https://example.com', evil);
   assert.match(p, /```untrusted-data/);
   assert.doesNotMatch(p, /\n## P0/);
+  assert.ok(!p.includes('x`y'), 'raw finding id with a backtick leaked into the prompt');
 });

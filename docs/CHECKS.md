@@ -3,7 +3,7 @@
 > Generated from `src/catalog.ts` by `npm run catalog`. Do not edit by hand — edit the catalog and regenerate.
 > `tests/catalog.test.ts` fails the build if the engine emits a finding id that is not listed here, or if this file is stale.
 
-**149** scanner checks + **10** Dynamic Business CMS critical-path checks + **5** white-box testkit helpers.
+**149** scanner checks + **5** white-box testkit helpers.
 
 Legend — how each check reaches its verdict:
 
@@ -236,21 +236,6 @@ Legend — how each check reaches its verdict:
 | VTA-0090 | `plugins` | Plugins base | info | probe | on | — | 0.5.0 | Base finding for user JSON plugin templates. |
 | VTA-0091 | `plugins.none` | No plugin templates | info | probe | on | — | 0.5.0 | No custom templates were loaded. |
 | VTA-0092 | `plugins.loaded` | Plugin templates loaded | info | probe | on | — | 0.5.0 | Count of custom templates executed. |
-
-## Dynamic Business CMS critical path
-
-| # | Check ID | Title | Severity | Class | Default | Standards | Since | What it detects |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| VTA-0155 | `db.auth.editor-cms` | Editor reaches CMS surfaces | high | authenticated | opt-in | — | 0.8.0 | Editor cookie session loads /dashboard/editor HTML (not /login) + Bearer reaches /api/editor/posts (skip if VTA_EDITOR_* missing). |
-| VTA-0156 | `db.auth.superadmin-homepage-config` | Superadmin reaches Homepage Config | high | authenticated | opt-in | — | 0.8.0 | Superadmin can GET /api/homepage/config (skip if VTA_SUPERADMIN_* missing). |
-| VTA-0157 | `db.auth.superadmin-ad-placements` | Superadmin reaches Ad Placements UI | high | authenticated | opt-in | — | 0.8.0 | Superadmin cookie session loads /dashboard/admin/homepage HTML without /login bounce (skip if creds missing). |
-| VTA-0158 | `db.api.uploads-ad` | POST /api/uploads type=ad accepts tiny PNG | high | authenticated | opt-in | — | 0.8.0 | Authenticated upload of a tiny PNG with type=ad returns 201 (DB #1441 dogfood; skip if auth env missing). |
-| VTA-0159 | `db.api.uploads-empty` | POST /api/uploads empty → 400 No file provided | high | authenticated | opt-in | — | 0.8.0 | Empty multipart upload returns 400 with "No file provided" (DB #1441; skip if auth env missing). |
-| VTA-0160 | `db.api.profiles-rls` | Profiles RLS blocks non-staff dump | high | authenticated | opt-in | — | 0.8.0 | Non-staff Bearer must not list all profiles via Supabase REST (DB #1416; skip if VTA_USER_* missing). |
-| VTA-0161 | `db.api.ad-track-xss` | Ad-track beacon XSS hygiene | medium | probe | opt-in | — | 0.8.0 | POST /api/analytics/ad-track with XSS markers returns JSON (not HTML reflection). |
-| VTA-0162 | `db.api.unsubscribe-xss` | Unsubscribe page XSS hygiene | medium | probe | opt-in | — | 0.8.0 | GET /api/jobs/alerts/unsubscribe with XSS-shaped token does not reflect raw markup (DB #1452). |
-| VTA-0163 | `db.api.stripe-amount` | Stripe amount dual-path (gated) | high | white-box | — | — | 0.8.0 | Optional non-destructive Stripe billing dual-path probe (VTA_STRIPE_AMOUNT_PROBE=1); otherwise SKIP. |
-| VTA-0164 | `db.editorial.golden-path` | Editorial golden-path scaffold | medium | white-box | — | — | 0.8.0 | Fetches VTA_UNPUBLISHED_ARTICLE_URL and asserts it is reachable for staff; SKIP if fixture unset. |
 
 ## White-box testkit helpers
 

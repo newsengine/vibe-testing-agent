@@ -2,7 +2,7 @@
 
 ## Live now
 
-**https://vibetesting-agent.dynamicbusiness.workers.dev**
+**https://vibetestingagent.com** (plus the account `*.workers.dev` URL for the `vibetesting-agent` Worker)
 
 - OpenNext on **Cloudflare Workers**
 - **D1** database migrated
@@ -31,7 +31,7 @@ Details: [WORKERS.md](./WORKERS.md)
 Dashboard → AuthKit → Redirects → add:
 
 ```
-https://vibetesting-agent.dynamicbusiness.workers.dev/api/auth/workos/callback
+https://vibetesting-agent.<account-subdomain>.workers.dev/api/auth/workos/callback
 https://vibetestingagent.com/api/auth/workos/callback
 http://localhost:3000/api/auth/workos/callback
 ```

@@ -74,7 +74,7 @@ export function initRepo(opts: InitOptions & { force?: boolean }): InitResult {
   // SECURITY.md pointer
   writeIfMissing(
     join(root, 'SECURITY.md'),
-    `# Security\n\nThis repo uses [vibetesting-agent](https://github.com/newsengine/vibetesting-agent) for deploy hygiene.\n\n` +
+    `# Security\n\nThis repo uses [vibetesting-agent](https://github.com/newsengine/vibe-testing-agent) for deploy hygiene.\n\n` +
       `- Run review: \`npx --yes ${PINNED_SPEC} ${opts.url} --agent-report security-review.md --gherkin features/security/hygiene.feature\`\n` +
       `- Baseline: \`vibetesting-agent-baseline.json\` (CI fails only on new highs)\n` +
       `- Gherkin: \`features/security/\`\n` +

@@ -1,21 +1,22 @@
 /**
- * Cloudflare bot-exception headers for Dynamic Business (and similar) probes.
+ * Cloudflare bot-exception headers for probes against your own origins.
  *
- * Host gates (never attach secrets to third-party origins):
+ * Host gates (never attach secrets to third-party origins). Both allowlists are
+ * empty by default, so nothing is sent until you name your hosts:
  * - `x-smoke-key` from `CF_SMOKE_KEY` | `X_SMOKE_KEY` (legacy: `SMOKE_KEY`) only
- *   when the request host is `dynamicbusiness.com` or `*.dynamicbusiness.com`.
- * - Cloudflare Access service-token headers only when hostname is exactly
- *   `beta.dynamicbusiness.com` and `CF_ACCESS_CLIENT_ID` +
- *   `CF_ACCESS_CLIENT_SECRET` are set.
+ *   when the request host matches `VTA_SMOKE_KEY_HOSTS`.
+ * - Cloudflare Access service-token headers from `CF_ACCESS_CLIENT_ID` +
+ *   `CF_ACCESS_CLIENT_SECRET` only when the host matches `VTA_CF_ACCESS_HOSTS`.
+ *
+ * Allowlist syntax: comma- or space-separated hostnames. `example.com` matches
+ * that exact host; `*.example.com` matches any subdomain (not the apex).
  *
  * For HTTP/fetch callers: use `cfBypassHeaders(url)` / `withCfBypassHeaders` per URL.
- * For Playwright browsers: use `installCfBypassRoute(context)` — never put these
+ * For Playwright browsers: use `installCfBypassRoute(context)`. Never put these
  * secrets on context-global `extraHTTPHeaders` (leaks to every origin).
  *
- * Secrets must come from env / CI secrets — never hardcode. Access is beta-only.
+ * Secrets must come from env / CI secrets. Never hardcode them.
  */
-
-export const BETA_ACCESS_HOST = 'beta.dynamicbusiness.com';
 
 function hostnameOf(raw?: string): string {
   if (!raw) return '';
@@ -27,15 +28,35 @@ function hostnameOf(raw?: string): string {
   }
 }
 
-/** First-party Dynamic Business hosts that may receive `x-smoke-key`. */
-export function isSmokeKeyHost(host: string): boolean {
-  const h = (host || '').toLowerCase();
-  return h === 'dynamicbusiness.com' || h.endsWith('.dynamicbusiness.com');
+/** Parse a comma/space separated host allowlist (lower-cased, empty entries dropped). */
+export function parseHostAllowlist(raw?: string): string[] {
+  return (raw || '')
+    .split(/[\s,]+/)
+    .map((h) => h.trim().toLowerCase().replace(/\.$/, ''))
+    .filter(Boolean);
 }
 
-/** Exact beta host that may receive Cloudflare Access service-token headers. */
-export function isBetaAccessHost(host: string): boolean {
-  return (host || '').toLowerCase() === BETA_ACCESS_HOST;
+/** True when `host` is listed exactly, or is a subdomain of a `*.domain` entry. */
+export function hostMatchesAllowlist(host: string, allowlist: string[]): boolean {
+  const h = (host || '').toLowerCase().replace(/\.$/, '');
+  if (!h) return false;
+  return allowlist.some((entry) => {
+    if (entry.startsWith('*.')) {
+      const base = entry.slice(2);
+      return Boolean(base) && h.endsWith(`.${base}`);
+    }
+    return h === entry;
+  });
+}
+
+/** Hosts (from `VTA_SMOKE_KEY_HOSTS`) that may receive `x-smoke-key`. */
+export function isSmokeKeyHost(host: string): boolean {
+  return hostMatchesAllowlist(host, parseHostAllowlist(process.env.VTA_SMOKE_KEY_HOSTS));
+}
+
+/** Hosts (from `VTA_CF_ACCESS_HOSTS`) that may receive Cloudflare Access service-token headers. */
+export function isCfAccessHost(host: string): boolean {
+  return hostMatchesAllowlist(host, parseHostAllowlist(process.env.VTA_CF_ACCESS_HOSTS));
 }
 
 /** Build CF bypass headers when the matching env vars are set for `targetUrl`. */
@@ -47,7 +68,7 @@ export function cfBypassHeaders(targetUrl?: string): Record<string, string> {
   const smoke = process.env.CF_SMOKE_KEY || process.env.X_SMOKE_KEY || process.env.SMOKE_KEY;
   if (smoke && isSmokeKeyHost(host)) headers['x-smoke-key'] = smoke;
 
-  if (isBetaAccessHost(host)) {
+  if (isCfAccessHost(host)) {
     const id = process.env.CF_ACCESS_CLIENT_ID;
     const secret = process.env.CF_ACCESS_CLIENT_SECRET;
     if (id) headers['CF-Access-Client-Id'] = id;

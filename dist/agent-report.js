@@ -72,7 +72,7 @@ function whereHint(f) {
 function verifyHint(url, f) {
     return [
         `npx --yes ${PINNED_SPEC} ${url} --only ${f.category}`,
-        `Confirm finding \`${f.id}\` no longer fails.`,
+        `Confirm finding \`${inlineSafe(f.id)}\` no longer fails.`,
     ].join('; ');
 }
 /**

@@ -1,6 +1,6 @@
 # Security
 
-> Template from `@newsengine/saas-security-kit`. Copy into a repo and fill in the status column.
+> Template from `vibetesting-agent`. Copy into a repo and fill in the status column.
 > Status: ✅ done · ◻️ open · 🔒 needs infra/credentials.
 
 ## Reporting a vulnerability

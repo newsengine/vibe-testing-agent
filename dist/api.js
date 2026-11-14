@@ -15,7 +15,7 @@ const API_WORDLIST = [
     '/api/config', '/api/users', '/api/user', '/api/me', '/api/admin', '/api/export',
     '/api/settings', '/api/internal', '/api/status', '/api/accounts', '/api/orders',
     '/api/customers', '/api/data', '/api/list', '/api/profile', '/api/session',
-    '/api/homepage/config', '/api/jobs/alerts/public', '/api/v1/users',
+    '/api/v1/users',
 ];
 // Write-suggestive routes for the OPT-IN unauthenticated-write probe. Only benign no-op bodies are sent,
 // and destructive-sounding verbs are never touched.
