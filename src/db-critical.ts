@@ -17,7 +17,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Finding, Severity } from './types.js';
-import { withCfBypassHeaders } from './cf-bypass-headers.js';
+import { withCfBypassHeaders, isSmokeKeyHost } from './cf-bypass-headers.js';
 
 export type DbCriticalRole = 'editor' | 'superadmin' | 'user';
 
@@ -396,8 +396,23 @@ export const TINY_PNG = Buffer.from(
 );
 
 
-export async function runDbCritical(targetUrl: string, opts: { timeoutMs?: number } = {}): Promise<Finding[]> {
+/**
+ * The suite logs in as editor / superadmin / user and sends those session tokens to the target, so by
+ * default it only runs against first-party Dynamic Business hosts (the same gate as x-smoke-key).
+ */
+export function dbCriticalHostAllowed(targetUrl: string): boolean {
+  try { return isSmokeKeyHost(new URL(originOf(targetUrl)).hostname); } catch { return false; }
+}
+
+export async function runDbCritical(
+  targetUrl: string,
+  opts: { timeoutMs?: number; /** Explicit opt-in (CLI --i-know-the-host) for non-Dynamic Business hosts. */ allowAnyHost?: boolean } = {},
+): Promise<Finding[]> {
   const origin = originOf(targetUrl);
+  if (!opts.allowAnyHost && !dbCriticalHostAllowed(targetUrl)) {
+    return [skip('db.host-gate', 'db-critical host gate',
+      `${new URL(origin).host} is not a dynamicbusiness.com host; staff credentials were not sent (pass --i-know-the-host to override)`)];
+  }
   const out: Finding[] = [];
   const timeoutMs = opts.timeoutMs ?? 20000;
   const ac = () => AbortSignal.timeout(timeoutMs);

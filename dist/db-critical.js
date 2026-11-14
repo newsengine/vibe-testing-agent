@@ -15,7 +15,7 @@
 //   VTA_STRIPE_AMOUNT_PROBE=1                  (opt-in; otherwise SKIP)
 //   CF_SMOKE_KEY                               (already supported via cf-bypass-headers)
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { withCfBypassHeaders } from './cf-bypass-headers.js';
+import { withCfBypassHeaders, isSmokeKeyHost } from './cf-bypass-headers.js';
 /** Catalog specs for docs/CHECKS.md (appended by catalog.ts). */
 export function dbCriticalCheckSpecs() {
     return [
@@ -336,8 +336,23 @@ function bouncedToLogin(res) {
 }
 /** 1x1 PNG */
 export const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+/**
+ * The suite logs in as editor / superadmin / user and sends those session tokens to the target, so by
+ * default it only runs against first-party Dynamic Business hosts (the same gate as x-smoke-key).
+ */
+export function dbCriticalHostAllowed(targetUrl) {
+    try {
+        return isSmokeKeyHost(new URL(originOf(targetUrl)).hostname);
+    }
+    catch {
+        return false;
+    }
+}
 export async function runDbCritical(targetUrl, opts = {}) {
     const origin = originOf(targetUrl);
+    if (!opts.allowAnyHost && !dbCriticalHostAllowed(targetUrl)) {
+        return [skip('db.host-gate', 'db-critical host gate', `${new URL(origin).host} is not a dynamicbusiness.com host; staff credentials were not sent (pass --i-know-the-host to override)`)];
+    }
     const out = [];
     const timeoutMs = opts.timeoutMs ?? 20000;
     const ac = () => AbortSignal.timeout(timeoutMs);

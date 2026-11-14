@@ -68,8 +68,14 @@ export declare function obtainAccessToken(role: DbCriticalRole): Promise<{
 }>;
 /** 1x1 PNG */
 export declare const TINY_PNG: Buffer<ArrayBuffer>;
+/**
+ * The suite logs in as editor / superadmin / user and sends those session tokens to the target, so by
+ * default it only runs against first-party Dynamic Business hosts (the same gate as x-smoke-key).
+ */
+export declare function dbCriticalHostAllowed(targetUrl: string): boolean;
 export declare function runDbCritical(targetUrl: string, opts?: {
-    timeoutMs?: number;
+    timeoutMs?: number; /** Explicit opt-in (CLI --i-know-the-host) for non-Dynamic Business hosts. */
+    allowAnyHost?: boolean;
 }): Promise<Finding[]>;
 /** Pure helpers exported for unit tests. */
 export declare function htmlReflectsXss(body: string, payload: string): boolean;
