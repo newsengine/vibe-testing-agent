@@ -6,7 +6,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,3 +22,29 @@ jobs:
       # (tests/lint.test.ts), so lint regressions fail CI like any other test.
       - run: npm ci || npm install
       - run: npm test
+
+  # The packed tarball is what users get from npm, so install it on the
+  # engines floor (Node 20) and run the CLI from it.
+  packed-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci || npm install
+      - run: npm pack
+      - name: Install the tarball in an empty project and run the CLI
+        shell: bash
+        run: |
+          tgz="$PWD/$(ls *.tgz | head -1)"
+          mkdir -p "$RUNNER_TEMP/consumer" && cd "$RUNNER_TEMP/consumer"
+          npm init -y >/dev/null
+          npm install "$tgz"
+          npx vta --help
+          node -e "import('$(node -p 'require(process.argv[1]).name' "$GITHUB_WORKSPACE/package.json")').then(m => { if (!Object.keys(m).length) process.exit(1); console.log('exports:', Object.keys(m).length) })"
