@@ -4,8 +4,8 @@
 
 | Package | License | Repo |
 |---|---|---|
-| **vibetesting-agent** (scanner engine, CLI, Gherkin/agent-report, CI helpers) | Apache-2.0 | https://github.com/newsengine/vibetesting-agent |
-| **vibetesting-agent** (docs, branding, OSS entry README) | Apache-2.0 | https://github.com/newsengine/vibetesting-agent |
+| **vibetesting-agent** (scanner engine, CLI, Gherkin/agent-report, CI helpers) | Apache-2.0 | https://github.com/newsengine/vibe-testing-agent |
+| **vibetesting-agent** (docs, branding, OSS entry README) | Apache-2.0 | https://github.com/newsengine/vibe-testing-agent |
 
 ## What stays hosted / commercial
 
@@ -23,24 +23,26 @@ The hosted app under `vibetesting-agent/` may be dual-licensed later; today trea
 - [x] SECURITY.md, CODE_OF_CONDUCT, CONTRIBUTING
 - [x] Authorized-use warnings in CLI + docs
 - [x] No customer PII in repo
-- [x] `npx github:newsengine/vibetesting-agent` zero-install path
+- [x] npm package name `vibetesting-agent` (unscoped) prepared in package.json
+- [ ] First `npm publish --access public` so `npx vibetesting-agent` works
 - [x] Agent report + Gherkin + `review` / `init` subcommands
-- [ ] Ensure GitHub repo visibility is **public**
+- [x] GitHub repo visibility is **public** (newsengine/vibe-testing-agent)
 - [ ] Tag a release (e.g. `v0.7.0`)
 - [ ] GitHub Pages for `docs/index.html` (optional)
 
 ## Publish steps
 
 ```bash
-# From vibetesting-agent
+# From the repo root, on the merged main commit
+npm login                      # once per machine
 npm test
-npm run build
-gh repo edit newsengine/vibetesting-agent --visibility public   # if still private
-gh release create v0.7.0 --generate-notes
-
-# Brand entry repo
-gh repo create newsengine/vibetesting-agent --public --description "VibeTesting Agent — security for vibe-coded apps" --source=./oss-entry --push
+npm pack --dry-run             # sanity-check the tarball contents
+npm publish --access public    # prepublishOnly rebuilds dist/
+gh release create v$(node -p "require('./package.json').version") --generate-notes
 ```
+
+Optional: create the `newsengine` organization on npmjs.com (Add Organization, free plan) to reserve
+the scope for future scoped packages. The CLI itself is published unscoped as `vibetesting-agent`.
 
 ## Community message
 

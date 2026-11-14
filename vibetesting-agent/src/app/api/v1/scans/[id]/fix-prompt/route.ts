@@ -28,7 +28,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         `Detail: ${f.detail}`,
         `Recommended fix: ${f.fix || 'Harden this surface safely.'}`,
         ``,
-        `After fixing, verify with VibeTesting Agent rescan or: npx github:newsengine/vibetesting-agent ${scan.url} --only ${f.category}`,
+        `After fixing, verify with VibeTesting Agent rescan or: npx vibetesting-agent ${scan.url} --only ${f.category}`,
       ].join('\n');
       return json({ prompt, finding: f });
     }

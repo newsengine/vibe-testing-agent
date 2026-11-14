@@ -1,18 +1,15 @@
-# VibeTesting Agent
+# vibetesting-agent
 
-> Black-box security scanning for vibe-coded apps. Free lite scan on the homepage; paid plans for continuous full scans after ownership verification.
+> Free, open-source (Apache-2.0) security scanner for deployed web apps. Point it at a URL and it reports leaked API keys in JS bundles, exposed .env/.git/config, missing security headers, broken links, and SEO, accessibility and performance gaps, each with a one-line fix. Also a test library with IDOR, RBAC and tenant-isolation helpers.
 
-## Product
-- Homepage lite scan: https://vibetestingagent.com/#lite
-- Pricing: https://vibetestingagent.com/pricing
-- Docs: https://vibetestingagent.com/docs
-- Dashboard: https://vibetestingagent.com/dashboard
-- Login: https://vibetestingagent.com/login
+## Install and run
+- Zero install: `npx vibetesting-agent https://your-app.example.com`
+- Global: `npm install -g vibetesting-agent`
+- From source: `git clone https://github.com/newsengine/vibe-testing-agent.git && cd vibe-testing-agent && npm ci && npm run build && node dist/cli.js <url>`
 
-## Open source
-- Scanner (vibetesting-agent): https://github.com/newsengine/vibetesting-agent
-- Hosted agent: https://github.com/mikenicholls-msv/vibetesting-agent
-
-## Contact
-- Support: mike@dynamicbusiness.com.au
+## Links
+- Source: https://github.com/newsengine/vibe-testing-agent
+- npm: https://www.npmjs.com/package/vibetesting-agent
+- Check catalog: https://github.com/newsengine/vibe-testing-agent/blob/main/docs/CHECKS.md
+- Issues: https://github.com/newsengine/vibe-testing-agent/issues
 - Security: see /.well-known/security.txt

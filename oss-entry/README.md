@@ -2,21 +2,22 @@
 
 **https://vibetestingagent.com**
 
-Security scanning for **vibe-coded** apps — continuous ship checks, agent fix packs, ownership-gated hosted scans.
+Free, open-source security scanning for **vibe-coded** apps: ship checks from a URL, agent fix packs, CI gates.
 
 ## Open-source scanner
 
-The engine is **[vibetesting-agent](https://github.com/newsengine/vibetesting-agent)** (Apache-2.0):
+The engine is **[vibetesting-agent](https://github.com/newsengine/vibe-testing-agent)** (Apache-2.0):
 
 ```bash
+# Install: npx (zero install), or npm install -g vibetesting-agent
 # Full black-box scan
-npx github:newsengine/vibetesting-agent https://your-app.example.com
+npx vibetesting-agent https://your-app.example.com
 
 # Security review → agent markdown + Gherkin
-npx github:newsengine/vibetesting-agent review https://your-app.example.com
+npx vibetesting-agent review https://your-app.example.com
 
 # Scaffold suite into a new repo
-npx github:newsengine/vibetesting-agent init https://your-app.example.com --name my-app
+npx vibetesting-agent init https://your-app.example.com --name my-app
 ```
 
 ### What it checks
@@ -25,23 +26,10 @@ Secrets · exposed config · security headers / TLS / CORS · DNS (SPF/DMARC/CAA
 
 Plus white-box helpers: IDOR, RBAC, tenant isolation, mass assignment.
 
-## Hosted product
-
-| Plan | Price | Cadence |
-|---|---|---|
-| Lite | Free | Public homepage lite scan |
-| Weekly | $25/mo | 1 full scan / week |
-| Daily | $100/mo | Daily scans + deploy hooks |
-| Every commit | $250/mo | Scan on every push |
-
-Paid plans **require domain ownership verification** so you cannot scan apps that are not yours.
-
-Sign up: https://vibetestingagent.com
-
 ## License
 
 Documentation and this meta-repo: Apache-2.0.  
-Scanner: Apache-2.0 under [newsengine/vibetesting-agent](https://github.com/newsengine/vibetesting-agent).
+Scanner: Apache-2.0 under [newsengine/vibe-testing-agent](https://github.com/newsengine/vibe-testing-agent).
 
 ## Authorized use only
 

@@ -317,7 +317,7 @@ PROMPT
         <p className="text-sm text-[var(--mut)]">
           Or OSS offline:{' '}
           <code className="text-[var(--ink)]">
-            npx github:newsengine/vibetesting-agent https://prod.example.com --fail-on high
+            npx vibetesting-agent https://prod.example.com --fail-on high
           </code>
         </p>
       </div>

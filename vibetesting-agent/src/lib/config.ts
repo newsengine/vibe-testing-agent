@@ -46,7 +46,7 @@ export const config = {
   turnstileSiteKey: req('NEXT_PUBLIC_TURNSTILE_SITE_KEY'),
   isDev: process.env.NODE_ENV !== 'production',
   ossRepo: req('OSS_REPO_URL', 'https://github.com/mikenicholls-msv/vibetesting-agent'),
-  scannerRepo: req('SCANNER_REPO_URL', 'https://github.com/newsengine/vibetesting-agent'),
+  scannerRepo: req('SCANNER_REPO_URL', 'https://github.com/newsengine/vibe-testing-agent'),
 };
 
 export function publicConfig() {

@@ -17,7 +17,7 @@ Run a full **vibetesting-agent** security review for this project (or the given 
 1. **Scan + artifacts** (from the project root):
 
 ```bash
-npx --yes github:newsengine/vibetesting-agent review <URL> \
+npx --yes vibetesting-agent review <URL> \
   --name <project> \
   --agent-report security-review.md \
   --gherkin features/security/hygiene.feature \
@@ -41,13 +41,13 @@ node /path/to/vibetesting-agent/dist/cli.js review <URL> --agent-report security
 4. **Regenerate** after a batch of fixes:
 
 ```bash
-npx --yes github:newsengine/vibetesting-agent review <URL>
+npx --yes vibetesting-agent review <URL>
 ```
 
 5. Optionally write baseline once debt is accepted:
 
 ```bash
-npx --yes github:newsengine/vibetesting-agent <URL> --write-baseline vibetesting-agent-baseline.json
+npx --yes vibetesting-agent <URL> --write-baseline vibetesting-agent-baseline.json
 ```
 
 6. Summarize for the user: grade/score, what you fixed, what remains, and CI status.
@@ -57,7 +57,7 @@ npx --yes github:newsengine/vibetesting-agent <URL> --write-baseline vibetesting
 If this is a fresh project with no security suite:
 
 ```bash
-npx --yes github:newsengine/vibetesting-agent init <URL> --name <project>
+npx --yes vibetesting-agent init <URL> --name <project>
 ```
 
 That scaffolds `security-review.md`, `features/security/`, cucumber step stub, baseline, `SECURITY.md`, and `.github/workflows/security.yml`.

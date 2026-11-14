@@ -123,7 +123,7 @@ export function buildSecurityReviewMarkdown(
         `- **Fix:** ${f.fix || 'Investigate and harden this surface with least privilege and safe defaults.'}`,
       );
       lines.push(
-        `- **Verify (accept):** \`npx github:newsengine/vibetesting-agent ${url} --only ${f.category}\`; confirm \`${f.id}\` no longer fails.`,
+        `- **Verify (accept):** \`npx vibetesting-agent ${url} --only ${f.category}\`; confirm \`${f.id}\` no longer fails.`,
       );
       lines.push('');
     });
@@ -137,7 +137,7 @@ export function buildSecurityReviewMarkdown(
   lines.push('2. Prefer reversible, scoped fixes (headers, CSP nonces, DNS records, env hygiene).');
   lines.push('3. After each fix, re-run the verify command for that finding.');
   lines.push(
-    `4. Full rescan: \`npx github:newsengine/vibetesting-agent ${url} --agent-report security-review.md\``,
+    `4. Full rescan: \`npx vibetesting-agent ${url} --agent-report security-review.md\``,
   );
   lines.push(
     '5. Or trigger VibeTesting Agent deploy webhook / `start_scan` MCP with `mode=full` and re-pull this report.',
@@ -274,13 +274,13 @@ export function buildSecurityReviewPdf(
       lines.push(`  Problem: ${f.detail}`);
       lines.push(`  Where: ${whereHint(f)}`);
       lines.push(`  Fix: ${f.fix || 'Harden safely.'}`);
-      lines.push(`  Verify: npx github:newsengine/vibetesting-agent ${url} --only ${f.category}`);
+      lines.push(`  Verify: npx vibetesting-agent ${url} --only ${f.category}`);
       lines.push('');
     });
   }
 
   lines.push('Agent instructions: work top-down (P1 first); re-scan after fixes.');
-  lines.push(`Full rescan: npx github:newsengine/vibetesting-agent ${url} --agent-report security-review.md`);
+  lines.push(`Full rescan: npx vibetesting-agent ${url} --agent-report security-review.md`);
 
   return textLinesToPdf(lines, {
     title: `security-review ${url}`,
